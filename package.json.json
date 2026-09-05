@@ -1,0 +1,9 @@
+{
+  "name": "fivem-pepe-vercel",
+  "version": "1.0.0",
+  "main": "api/index.js",
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.4.0"
+  }
+}
